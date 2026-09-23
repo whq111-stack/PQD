@@ -1,0 +1,812 @@
+       第 46 卷 第 8 期                                中   国 电 机 工 程 学                 报               Vol.46 No.8 Apr. 20, 2026
+ 3118 2026 年 4 月 20 日                                  Proceedings of the CSEE                    ©2026 Chin.Soc.for Elec.Eng.
+DOI：10.13334/j.0258-8013.pcsee.242877 文章编号：0258-8013 (2026) 08-3118-12 中图分类号：TM 71 文献标识码：A
+
+
+
+                           融合时频自适应小波卷积网络的
+                              半监督电能质量扰动识别框架
+                             徐玉珍 1，高子奥 1，刘宇龙 2，陈煌滨 1，金涛 1*
+                             (1．福州大学电气工程与自动化学院，福建省 福州市 350108；
+                                       2．北京大学能源研究院，北京市 海淀区 100871)
+
+
+    Semi-supervised Power Quality Disturbance Identification Framework Integrated With
+                  Time-frequency Adaptive Wavelet Convolutional Network
+                             XU Yuzhen1, GAO Zi’ao1, LIU Yulong2, CHEN Huangbin1, JIN Tao1*
+         (1. College of Electrical Engineering and Automation, Fuzhou University, Fuzhou 350108, Fujian Province, China;
+                             2. Institute of Energy, Peking University, Haidian District, Beijing 100871, China)
+
+
+ABSTRACT: Traditional power quality disturbances (PQD)                   network，TFAWNet)的半监督 PQD 识别框架。首先，构建
+classification methods rely on a large amount of labeled data            基于小波卷积和多级注意力机制的教师网络 TFAWNet，在
+and perform poorly under multiple disturbance coupling and               少量标记数据的条件下进行训练，得到最优模型；随后，利
+strong noise interference. To solve this problem, this paper             用训练优化后的教师模型对未标记数据进行深度推理，生成
+proposes a semi-supervised PQD recognition framework that                高置信度的伪标签，并结合标记数据与伪标签数据共同训练
+integrates   a     time-frequency     adaptive     wavelet   network     轻量级学生网络 EfficientNet。实验结果显示，在每类扰动
+(TFAWNet). First, a teacher network TFAWNet based on                     仅有 50 个标记样本的情况下，学生网络在仿真数据上的测
+wavelet convolution and multi-level attention mechanism is               试准确率达到 93.27%。将该模型部署于边缘计算平台后，
+constructed and trained with a small amount of labeled data to           经实测数据验证，准确率高达 99.83%，且平均推理时间仅
+obtain the optimal model. Subsequently, the trained and                         进一步验证了该框架在仿真和实际中的优越性能，
+                                                                         为 10 ms，
+optimized teacher model is used to perform deep reasoning on             突显了模型的鲁棒性、实用性和高效性。
+unlabeled data to generate high-confidence pseudo labels, and
+                                                                         关键词：半监督学习；电能质量扰动；小波卷积；时频特征
+the labeled data and pseudo-label data are combined to jointly
+                                                                         融合；边缘计算
+train a lightweight student network EfficientNet. The
+experimental results show that with only 50 labeled samples for          0    引言
+each type of disturbance, the student network has a test
+accuracy of 93.27% on the simulation data. After the model is                  近年来，随着能源结构调整和新型负载持续增
+deployed on the edge computing platform, it is verified by               加，电网中电能质量问题变得愈发复杂。在此背景
+measured data that the accuracy is as high as 99.83%, and the            下，电力电子技术的引入不仅改变了电力系统的负
+average inference time is only 10 ms. These performances                 载特性[1-2]，还加剧了系统内的谐波、电压波动等扰
+further verify the superior performance of the framework in
+                                                                         动现象。同时，分布式能源接入的多样化和不确定
+simulation       and   practice,    highlighting    the   robustness,
+practicality and efficiency of the model.
+                                                                         性 进 一 步 增 加 了 电 能 质 量 扰 动 (power quality
+                                                                         disturbances，PQD)的频发性和复杂性[3-4]。这些挑
+KEY WORDS: semi-supervised learning; power quality
+                                                                         战不仅对电网的稳定运行提出更高要求，还可能对
+disturbance; wavelet convolution; time-frequency feature
+fusion; edge computing                                                   关键用电设备的正常运行产生不良影响。因此，准
+                                                                         确、高效的 PQD 识别技术对于提升电力系统的智
+摘要：传统的电能质量扰动(power quality disturbances，PQD)
+分类方法依赖大量标记数据，且在多重扰动耦合和强噪声干
+                                                                         能化水平和用户用电的可靠性具有重要意义。
+扰下表现不佳。为了解决这一问题，该文提出一种融合时频                                                     传统的 PQD 分类方法主要包括特征提取和扰
+自 适 应 小 波 卷 积 网 络 (time-frequency adaptive wavelet                       动分类两个步骤。在特征提取阶段，对扰动信号进
+第8期                徐玉珍等：融合时频自适应小波卷积网络的半监督电能质量扰动识别框架                              3119
+
+行经验模态分解[5]、变分模态分解(variational mode                量标注数据的支持，但获取这些数据在实际应用中
+                     [6]
+decomposition ， VMD)       、 小 波 变 换 (wavelet     既耗时又昂贵，尤其是在电力系统中，对复杂的
+             [7]           [8]
+transform，WT) 、S 变换 等预处理操作。完成特                    PQD 数据进行标记需要耗费大量的人力和物力。此
+征提取后，将预处理所得特征输入到如支持向量机                            外，模型计算复杂度较高，也使其在实际电力系统
+                                 [9]       [10]
+(support vector machine，SVM) 、极限梯度提升              中应用具有较大挑战性。因此，针对有标签数据匮
+等算法模型，完成扰动分类。文献[11]提出一种基于                         乏的问题，半监督学习成为目前 PQD 识别领域亟
+自适应 Kaiser 窗 S 变换的 PQD 检测框架，通过自适                  待发展的方向。
+应地调整 Kaiser 窗参数，有效提高了时频分辨率，                           半监督学习在电力系统的其他多个研究方向中
+得到了更详细的特征信息。但其与大多数传统分类                            已有成功应用。例如，文献[23]提出一种融合虚拟对
+法一样，在特征提取阶段沿用单一的 PQD 分类的特                         抗训练和均值教师模型的半监督学习框架，用于电
+征值，并未考虑多种扰动元素的耦合关系，因此，                            网仿真中的稳定性分析。该框架仅使用 5%有标注样
+在多重 PQD 的识别上表现不佳，同时预处理过程计                         本(312 个)即可达到近 96%的准确率。此外，文献[24]
+算复杂度较高，严重影响了分类任务的实时性。                             提出一种用于电力调度知识图谱构建的半监督电力
+    深度学习算法将两步法中的特征提取和模式                           实体识别方法。该方法在 10%标注数据下，F1 分数
+识别融为一体。目前，深度学习在 PQD 分类的应                          相比最优基线提升了 15.92%。文献[25]提出一种基
+用主要分为两类：1）将一维 PQD 信号通过格拉姆                         于判别性特征增强和自适应权重调整的变压器半监
+角场[12]、马尔可夫转移场[13-14]等可视化方法转换为                    督故障诊断方法。在有标签数据与无标签数据比例
+二维图像数据，通过深度学习提取特征，进而实现                            为 1:9 的情况下，该方法的诊断准确率达到 94.1%。
+分类。文献[15]创新性地提出一种三维可视化螺旋                          上述研究表明，半监督学习在减少对标记数据的依
+曲线方法，将一维信号转化为三维螺旋曲线，从多                            赖、充分利用未标记数据方面具有显著的优势。然
+维视角展示时频信息，并结合改进残差网络进行分                            而，通过现有文献调研可知，在 PQD 识别领域，半
+类。然而，单一图像特征信息有限会影响分类效果。                           监督学习的应用仍然相对较少。同时，在处理复杂
+为解决这一问题，文献[16]提出一种改进方法，即                          扰动信号时，现有方法的识别能力和噪声鲁棒性尚
+将 VMD 分解得到的特征彩色图以及由 WT 生成的                        有待提高。因此，探索在 PQD 识别中应用半监督学
+时频图共同输入到深度学习模型中进行训练。通过                            习方法，具有重要研究意义和应用价值。
+这种多模态特征的融合，模型的分类性能得到了显                                为此，本文提出一种基于 TFAWNet 的半监督
+著提升，但在实时性方面存在一定的损失；2）直                            识别框架。首先，构建融合小波卷积和多级注意力
+接 将 一 维 PQD 时 序 信 号 输 入 到 卷 积 神 经 网 络             机制的 TFAWNet 教师模型，通过小波卷积提取信
+(convolutional neural networks，CNN)[17-18]、循环神    号的多尺度时频特征，利用多级注意力机制强化对
+经网络[19]及其变体长短期记忆网络[20]、门控循环单                      关键特征的捕捉和关注。教师模型基于有限的标记
+元[21]等深度学习模型进行识别。文献[17]提出一种                       数据进行训练，以获得最优特征提取能力。接着，
+基于深度 CNN 的新型全闭环 PQD 分类方法，其主                       使用最优教师模型对未标记数据进行推理，生成高
+体由一维卷积层、池化层和批标准层构成的多个单                            置信度的伪标签。随后，将伪标签数据与有标记数
+元的层叠实现。但此方法只关注单一特征，未能充                            据结合，输入轻量级学生网络 EfficientNet 进行训
+分捕捉 PQD 信号的多维特征，导致在处理复杂 PQD                       练，从而得到最终识别的模型。通过仿真和实验，
+时存在一定的局限性。为解决这一问题，文献[22]
+                                                  首先，对教师模型和学生模型在有标签数据集上进
+在 CNN 的基础上采用并行结构同时引入双向门控
+                                                  行训练和筛选；然后，验证并分析在无标签数据集
+循环单元，以便提取时频空间特征和时间关系特
+                                                  下半监督学习框架的性能；最后，使用实测数据在
+征，弥补了单一特征提取方式的不足，从而提高了
+                                                  边缘计算平台上对所提方法进行测试。
+对复杂 PQD 信号的分类准确性和泛化能力。由于
+该方法引入了快速傅里叶分解以获取频域信息，导                            1   PQD 数学建模
+致训练效率和计算成本有所增加。                                       基于 IEEE Std 1159-2019 标准及相关公式，单
+    然而，上述方法的有效性主要依赖于大量高质                          一扰动的数学模型主要由标准电压信号和扰动因
+3120                                                    中     国   电   机   工    程      学    报                                                      第 46 卷
+
+子两部分组成。根据扰动类型的不同，扰动因子与                                                    模型 fT，通过交叉熵损失来实现：
+标准电压信号以加法或乘法组合，如式(1)所示。                                                                                          kc
+                                                                                          L[ yi , f T ( xi )] = Σ yi( j ) log[ f T( j ) ( xi )]       (5)
+                      Us = X 0 [M ul (t )  U +A(t )]             (1)                                            j =1
+
+式中：t 为基于采样频率的时间；U 为标准电压信                                                  式中 yi( j ) 和 f T( j ) 分别为 yi 和 fT 对应类别 j 的值。
+号；X0 为电压幅值；Mul(t)为相乘形式的扰动因子；                                                此后，将 Nunl 输入到训练好的教师模型 fTc 中生
+A(t)为相加形式的扰动因子。                                                           成相应的软伪标签 yˆ uni ，表示为 xuni 对应每个类别
+       对于复合扰动，根据在复合扰动中，每大类中                                               的概率。为了促进学生模型将决策边界推到数据分
+至多仅发生一种扰动，且满足其自身约束条件的标                                                    布边缘的低密度区域，通常使用硬伪标签代替软伪
+准，建立复合扰动数学模型。以“暂降”和“缺口”                                                   标签，当软伪标签中的最大概率值位于置信度区间
+组成的双重扰动为例，其数学模型如下：                                                        内时，通过突出该软标签中的最大概率值来实现，
+    U d = X 0{1  αsag [ε (t  ts_sag )  ε (t  te_sag )]} ×             整个流程可以表示如下：
+         {U  α n sign(U )[ε (t  ts_n )  ε (t  te_n )]}        (2)            ■ yˆ uni = f Tc ( xuni )
+                                                                                 
+                                                                                 ■ yun i = arg max([ yˆ un
+                                                                                                          (1)
+                                                                                                            i, , yˆ un
+                                                                                                                    (*)
+                                                                                                                      i, , yˆ un i ]) =
+                                                                                                                              ( kc )
+                                                                                                                                                      (6)
+式中：αsag 为暂降幅度；ε(t)为单位阶跃函数；ts_sag、
+                                                                                 
+te_sag、ts_n、te_n 分别为暂降、缺口的起始和结束时                                                 ■           [0, ,1, ,0], yˆ uni > Cmin
+                                                                                                               (*)
+
+
+
+间；αn 为缺口导致的电压幅值下降幅度；sign()为                                                                        为独
+                                                                          式中：argmax(·)为取其中最大值的索引； yuni
+符号函数。由“暂升”
+         、“谐波”和“振荡”组成的                                                    热编码后的索引对应的标签；Cmin 为置信区间最
+三重扰动，可由式(3)表示。                                                            小值。
+    U t = X 0U {1 + α sw [ε (t  ts_sw )  ε (t  te_sw )]} +                       将生成的硬伪标签及其数据和有标签样本输
+        X 0 Σ α h sin(hω0t + φh ) + X 0α o e  (t tso )/K ×              入到学生模型 fS 训练。为进一步指导学生模型向着
+            h=3,5,7                                                       正确的方向训练，借鉴知识蒸馏算法中的知识，利
+         [ε (t  ts_o )  ε (t  te_o )]sin[ωo (t  ts_o )]       (3)     用教师网络和学生网络的输出构造蒸馏损失函数
+式中：αsw、αh、αo 分别为暂升幅度、各次谐波的                                                作为学生模型训练过程损失函数的一部分，完整的
+振幅及振荡幅度；ts_sw、te_sw、ts_o、te_o 分别为暂升、                                      损失函数如下：
+振荡的起始和结束时间；φh 为谐波的相角；K 为振                                                                               1 M +N
+荡衰减常数；ωo 为振荡角频率。由“中断”“脉冲”、
+                     、
+                                                                              Ltotal = (1  α )T 2          Σ K L [ yˆt , fS ( xt )] + α ×
+                                                                                                      M + N t =1
+“缺口”、“波动”组成的四重扰动数学模型如下：                                                             1 N                       1 M
+                                                                                {     Σ
+                                                                                    N i=1
+                                                                                          L[ yi , fS ( xi )] + Σ L[ yun
+                                                                                                              M j =1
+                                                                                                                      j , fS ( xunj )]}              (7)
+    U q =X 0 {U α n sign(U )[ε (t ts_n ) ε (t te_n )]}×
+         [1+α f sin(ωf t )]×{1α in [ε (t ts_in )                       式 中 ： α 为 蒸 馏 系 数 ； T 为 蒸 馏 温 度 ； KL(·)为
+        ε (t te_in )]}×{1+α im [ε (t ts_im ) ε (t te_im )]}   (4)     KL(Kullback-Leibler)散度损失；N、M 分别为有标
+                                                                          签样本和无标签样本数量。参考相关文献，并经过
+式中：αf、αin、αim 分别为电压波动幅度、电压幅
+                                                                          多次测试，本文蒸馏温度 T 设为 3，α设为 0.3[27]。
+值下降幅度以及脉冲幅度；ts_in、te_in、ts_im、te_im 分
+                                                                                    基于上述理论，本文构建了基于伪标注算法和
+别为中断、脉冲的起始和结束时间；ωf 为电压波动
+                                                                          深度学习的 PQD 识别半监督网络框架。如图 1 所
+角频率。以上述数学模型为例，本文建立了 PQD
+                                                                          示 ， 主 要 包 含 TFAWNet 教 师 模 型 与 基 于
+各类别的数学模型。
+                                                                          EfficientNet 简化的学生模型。
+2      基于深度学习的半监督学习方法                                                     2.2 时间-频率自适应小波卷积网络
+2.1 伪标注算法                                                                           由伪标注算法可知，教师模型的分类准确率对
+       伪标注算法是一种简单有效的半监督学习分                                                于半监督框架至关重要，为此，本文提出由离散小
+                [26]
+类网络算法                 。对于给定数据集 N={Nl, Nunl}可以                             波卷积层(discrete wavelet convolution layer，
+分为有标签数据集 Nl={(x1, y1), (x2, y2), ···, (xN, yN)}                           DWTConv)、多尺度特征交互注意力机制
+无标签数据集 Nunl={xun1, xun2, ···, xunM}，其中，yi∈K，                              (multi-scale feature interaction attention mechanism，
+K={1, 2, ···, kc}为离散标签集。首先用Nl 训练教师                                        MSFIA) 、时间卷积收缩网络(temporal
+第8期                    徐玉珍等：融合时频自适应小波卷积网络的半监督电能质量扰动识别框架                                                                       3121
+
+
+
+
+                                         图 1 基于深度学习的半监督网络框架图
+                           Fig.1   Semi-supervised network framework based on deep learning
+                                                                  jL
+convolutional shrinkage networks ， TCSN) 组 成 的                量 yhigh ，可表示为
+TFAWNet 教师模型。
+                                                                      ■ jL         k 1 C
+
+                                                                       ylow (n) = ΣΣΦθ ,c  x
+                                                                                                      ( jL 1)
+2.2.1 离散小波卷积层                                                                                                  (n  θ , c)
+                                                                                  θ =0 c =0
+     在 PQD 分 类 方 法 中 离 散 小 波 变 换 (discrete                            ■             k 1 C
+                                                                                                                               (10)
+                                                                       y jL (n) =
+wavelet transform，DWT)主要应用于特征提取阶段，                                    ■ high       ΣΣ       Ψθ ,c  x ( jL 1) (n  θ , c)
+                                                                                    θ =0 c =0
+通过将原始信号分解为多个频段的子信号，再将这
+                                                              式中：Φθ,c 和Ψθ,c 分别为低通滤波器和高通滤波器
+些特征输入神经网络中进行训练和识别。此类方法
+                                                              的权重矩阵；k 为卷积核大小；C 为输入信号的通
+不仅增加了计算量负担，还提升了时间成本。为此
+                                                              道数。经过 L 层小波卷积后，所有层级的低频特征
+本文提出一种新的卷积层 DWTConv，将 DWT 的
+                                                                        形成最终的输出特征 Y(n)：
+                                                              和高频特征被级联起来，
+优点引入到卷积操作中，在实现了对信号时频特征                                                                  L
+提取的同时，降低了时间成本。传统的一维卷积输                                                      Y (n) = ⊕ ([ ylow
+                                                                                           jL        jL
+                                                                                              (n), yhigh (n)])                 (11)
+                                                                                       jL =1
+出 y(n)可表示为
+                                                              式 中 [,] 和 ⊕ 分 别 为 两 个 向 量 和 多 个 向 量 的 级 联
+              y(n) = Σ x(n  θ )  ω (θ )               (8)
+                       θ                                      操作。
+式中：ω(·)为卷积核函数；x(·)为输入信号；n 为输                                  2.2.2 多尺度特征交互注意力机制
+出特征的位置索引；θ为卷积操作的中间变量。卷                                             DWTConv 有效地提取了输入信号的多尺度时
+积核通过滑动窗口在输入信号上进行滑动，提取局                                        频特征，但不同尺度的特征可能包含重复或相似的
+部特征，但其在不同频率信息的分离上存在一定局                                        信息，增加模型的计算负担。对各个尺度特征重要
+限，故通过引入小波基函数作为卷积核函数，实现                                        性的区分不够，可能导致关键特征被淹没，影响最
+对信号在时频域的更丰富表征，小波卷积的输出表                                        终的分类性能。为克服上述挑战，本文引入 MSFIA，
+示为                                                            该机制能够自适应地评估和调整不同尺度特征的
+           ya,b (n) = Σ x(n  θ ) ψ a,b (θ )           (9)   权重，强化关键特征，并有效的融合多尺度信息，
+                       θ                                      其结构如图 2 所示。
+式中ψa,b(·
+       )为尺度因子 a 和平移因子 b 下的小波基                                   从图 2 可以看出，信号经过 DWTConv 后会得
+函数。为得到更加丰富的信息，本文设计一种能进                                        到多尺度高频特征和低频特征。为评估单一尺度内
+行多层小波卷积的卷积层，对于每一层 jL(jL=1,2,…,                                不同通道的重要性，本文首先引入压缩激励网络
+              (jL1)                             jL
+L)，输入信号 x          被卷积为低频分量 y                   low   和高频分    (squeeze and excitation networks，SENet)，以提高对
+3122                                                                 中        国   电   机   工    程    学     报                                          第 46 卷
+
+            CInput
+                                       CH1                  DWTConv
+                                                             CH2
+                                                                                          成。对于时序数据 X∈Rn，卷积核 f：{0,…,k1}→R
+                                               高频特征
+                                   CL1                                                    对序列中的元素 s 进行卷积操作的定义为
+                                                             CL2
+                       第一级                                              CHn                                                      k 1
+                                 低频特征
+                                                      第二级               CLn                           F ( s) = ( X *d f )( s) = Σ f (i)  X s-d i            (13)
+               CL1 + CH1       CL2 + CH2                      CLn + CHn                                                          i =1
+
+                                                                                          式中：k 为卷积核大小；*为卷积算子；sdi 表示
+                SENet           SENet                           SENet
+                                                                                          从过去的方向进行卷积，膨胀因子 d 随层数增加呈
+                                             Concat
+                                                       CConcat=CL1 +…+CLn+
+                                                 …             CH1 +…+CHn                 指数级增长趋势，即 d=1,2,4,…,2nt，从而有效地扩
+                     MSFIA
+                                                 Softmax                                  展了模型的时序依赖范围。
+                                                 …
+
+                                                 倍乘                                                在残差块后加入 SENet 自适应地调整每个通道
+                                  Concat                                                  的权重，使模型关注更重要的特征通道，从而提高
+                                                 卷积降维
+                             CConcat
+                                                                                          模型的泛化能力。多尺度特征矩阵在通过 TCSN 后
+                                                 …
+                                                                                          进一步提高了对时间的表达能力，接着输入全局平
+                           图 2 MSFIA 结构图                                                  均池化层进行压缩，最终通过多层感知机
+                      Fig. 2      Structure of MSFIA
+                                                                                          (multilayer perceptron，MLP)经 Softmax 函数完成
+关键特征的感知能力。对输入特征矩阵 X∈RC×L×B，                                                               PQD 识别。TFAWNet 教师模型的整体结构如表 1
+其第 c 个通道的输出可以表示为                                                                          所示。
+                                          1 L B                                                                   表1     TFAWNet 结构
+  X c,i , j = σ [W2  δ (W1                 ΣΣ X c,i, j )]  X c,i, j
+                                        L × B i=1 j =1
+                                                                                  (12)
+                                                                                                            Table 1    Structure of TFAWNet
+                                                                                               模块                   层类型                        输出尺寸
+式中：W1∈RC/r×C、W2∈RC×C/r 分别为两个全连接层
+                                                                                              DWTConv              DWTConv               (batch_size，640，64)
+的权重矩阵；r 为压缩比；δ为 ReLU 激活函数；σ                                                                    MSFIA                MSFIA                (batch_size，640，64)
+为 Sigmoid 函数；i、j 为空间索引。                                                                                    Conv_ResBlock_SENet_1         (batch_size，640，64)
+
+       为了进一步建模不同尺度特征间的依赖关系                                                                                 Conv_ResBlock_SENet_2        (batch_size，640，128)
+                                                                                               TCSN        Conv_ResBlock_SENet_3        (batch_size，640，128)
+并捕捉跨尺度的信息交互，如图 2 所示，首先，将
+                                                                                                           Conv_ResBlock_SENet_4        (batch_size，640，256)
+各尺度特征进行拼接；然后，通过卷积层对连接后
+                                                                                                              GlobalAveragePooling         (batch_size，256)
+的特征进行混合，进一步融合信息；接着，使用                                                                                               Dense_1                (batch_size，256)
+Softmax 函数计算各尺度间的注意力权重；最后，                                                                     MLP                  Dense_2                (batch_size，128)
+将这些权重赋予混合特征。为了实现特征融合，将                                                                                              Dense_3                (batch_size，72)
+
+所有尺度内注意力特征和尺度间注意力特征连接                                                                     2.3 基于 EfficientNet 简化的学生网络模型
+起来，最终通过卷积层对特征进行降维，得到低维                                                                             为了在保证分类准确率的前提下实现模型的
+关键特征矩阵，以便于后续训练。                                                                           轻量化，本文选择了结构紧凑且效率高的
+2.2.3 时间-频率自适应小波卷积网络                                                                      EfficientNet 作为学生模型。由于本文研究的对象为
+       经过 DWTConv 和 MSFIA 提取后的时频特征，                                                       时序信号，而 EfficientNet 主要应用于二维图像分
+它兼顾时域和频域的特点，但更多的是在频域上对                                                                    类，因此对其进行适应性改造，以便处理时序信号。
+PQD 信号进行特征提取，得到各个频段的特征。在                                                                  简化后模型结构如图 3 所示。
+    本文进一步引入 TCSN 以补充 DWTConv
+此基础上，                                                                                              从图 3 可以看出，改造后的 EfficientNet 作为
+在时序依赖性建模上的不足。TCSN 结构主要由卷                                                                  本文的学生模型，主要包括一维卷积层
+积层、残差块、SENet 模块串联堆叠而成。                                                                    (1-dimensional convolutional layer，Conv1D)、移动
+       首先，TCSN 中的卷积层对输入信号进行初步                                                             卷积块(mobile convolutional blocks，
+特征提取，并调整特征图通道数，以提供合适的输                                                                    MBConvBlock)、批量归一化以及全局平均池化
+入维度供后续的残差块处理。残差块通过多个膨胀                                                                    (global average pooling，GAP)等模块。首先，Conv1D
+因果卷积(dilated causal convolution，DCConv)层和                                                 用于提取输入时序信号的基本特征，随后，通过
+一条捷径组成，DCConv 由因果卷积和膨胀卷积组                                                                 MBCon vB lo ck 进 行特征的 深度挖掘和 扩展。
+第8期                      徐玉珍等：融合时频自适应小波卷积网络的半监督电能质量扰动识别框架                                                                                       3123
+
+    输入信号                                                    CHV25p/100 将电压信号转换为采样范围内的小电
+                     MBConvBlock        Conv 1×1, BN,
+                                           Swish            压。通过数据采集卡 NET6043，将数据传输到上位
+                       Conv1D
+                                         DWConv, BN,        机进行数据处理以及算法验证。
+                                           Swish
+      Conv1D             BN
+                                       SENet, r=4, Swish,
+                                           Sigmoid
+          BN            GAP
+                                         Conv 1×1, BN
+    MBConvBlock         Dense
+                                            Dropout
+    MBConvBlock           …
+                       分类结果
+                                                                       信号源                     获取信号                                     可视化
+               图 3 一维 EfficientNet 结构图                                                     霍尔传感器
+
+ Fig. 3    One-dimensional EfficientNet structure diagram                                                          数据采集卡
+MBConvBlock 具有较高的计算效率，采用深度可分
+离卷积以减少计算量，从而在保持特征丰富度的同
+时降低模型复杂度。在 MBConvBlock 之后，使用
+GAP 压缩，再通过全连接层对特征进行分类。将                                                                     图 4 硬件实验平台
+SENet 引入 MBConvBlock，用于对通道进行加权，                                                Fig. 4    Hardware experimental platform
+从而提高模型对重要特征的关注度，进而提升分类                                                根据信号源的工作特点，输出并采样了正常、
+性能。简化后的 EfficientNet 依赖于深度卷积、移                              暂升、暂降、中断、谐波、缺口 6 种单重 PQD 信
+动卷积和注意力机制的高效设计，实现了模型的轻                                      号和暂升+谐波、暂升+缺口、暂升+波动、暂降+
+量化。                                                         谐波、暂降+缺口、暂降+波动 6 种双重 PQD 信号，
+                                                            以此标记为 C0-C11，再通过标幺值计算将正常信号
+3    实验分析
+                                                            的幅值转换为 1.0，以便于输入模型进行识别。其
+3.1 数据集与实验配置介绍
+                                                            中，中断、暂降+缺口的波形分别如图 5(a)、(b)所
+      为了更加全面地评估半监督学习框架的性能，
+                                                            示。每种信号采样 100 组，共计 1 200 组信号构成
+本文实验采用 MATLAB 生成的仿真数据集和硬件
+                                                            实测数据集。
+平台采集的实测数据集。                                                          1.0                                            1.0
+      仿真数据集包含 71 类扰动信号与正常信号。                                         0.5                                            0.5
+                                                            幅值/pu
+
+
+
+
+                                                                                                           幅值/pu
+
+
+
+
+数据集分为无噪声数据和噪声数据。考虑到实际应                                               0.0                                            0.0
+
+用中 PQD 信号通常含有噪声，参考 IEEE Std                                         -0.5                                           -0.5
+
+1159-2019 标准，最大噪声强度应为信号幅值的 1%，                                      -1.0                                           -1.0
+                                                                           0       200  400          600                  0       200  400 600
+对应信噪比(signal-to-noise ratio，SNR)为 40 dB，综                                            采样点/个                                          采样点/个
+                                                                                  (a) 中断波形图                                   (b) 暂降+缺口波形图
+合测量误差和传输误差等因素，将仿真信号的最大
+                                                                                            图 5 实测信号波形
+噪声强度设为 30 dB。信号采样频率为 3 200 Hz，每
+                                                                               Fig. 5    Actual measured signal waveform
+个样本包含 10 个周期 640 个采样点，其他参数参
+                                                                      在实验配置方面，本文基于 Python 以及 Keras
+照 IEEE Std 1159-2019 标准配置。
+                                                            构建半监督学习框架，相关硬件配置及软件版本如
+      教师模型的训练集和测试集由有标签数据构
+                                                            表 2 所示。
+成，训练集每种扰动包含 2 000 个样本，测试集每
+种扰动 500 个样本；学生模型的训练集为无标签数                                                               表 2 硬件与软件的版本型号
+                                                                      Table 2           Hardware and software version models
+据，每种扰动 3 200 个样本，测试集为有标签数据，
+                                                               硬件/软件                      型号/版本                硬件/软件                型号/版本
+每种扰动 800 个样本。所有的数据集均由一半无噪
+                                                                      OS                 Win10 64bit                 CPU        Intel Core i9-14900k
+声数据和一半 SNR 为 30 dB 的高斯白噪声数据组                                          GPU               RTX 4090 24GB               RAM            DDR4 24GB
+成。采集实测数据集的硬件实验平台如图 4 所示，                                             HDD                  SSD 1 Tb                  Python              3.9
+平台使用 Chroma-6560 可编程交流电源作为信号源                                TensorFlow                     2.6.0                   CUDA               11.2.0
+
+产 生 PQD 信 号 ， 紧 接 着 通 过 霍 尔 传 感 器                                    Keras                  2.6.0                  cuDNN               8.1.0
+3124                                                     中    国    电    机   工   程             学   报                                            第 46 卷
+
+         实验部分主要分为以下 3 部分：3.2 节验证教                                           性能。
+师模型在有标签数据集上的性能；3.3 节首先通过                                                                 DWTConv 和 MSFIA 的特征提取能力可以通
+常规的有监督方法验证各学生模型的性能，然后，                                                      过对其输出特征的可视化进行验证，如图 7 所示。
+在无标签数据集上训练半监督学习框架，分析伪标                                                      图 7(a)为无噪声和 30 dB 噪声的原始信号，图 7(b)、
+签算法的最优置信区间，并通过对比实验验证半监                                                      (c)分别显示了原始信号经过 DWTConv 后的低频和
+督学习对学生模型的提升效果；3.4 节使用实测数                                                    高频特征，图 7(d)为经 MSFIA 融合后的特征。可
+据在边缘计算平台上验证经过半监督框架训练后                                                       知，DWTConv 能够有效地将信号卷积为低频和高
+的学生模型性能。                                                                    频分量，其中低频特征保留了信号的全局结构，而
+3.2 TFAWNet 性能分析                                                            高频特征则揭示局部细节信息。在 SNR 为 30 dB 下，
+         为了进一步分析 TFAWNet 中 DWTConv、                                         DWTConv 提取的高频特征对噪声较为敏感，导致
+MSFIA、SENet 对整个模型性能的贡献，进行消融                                                 特征提取效果有所降低。然而，尽管存在噪声，高
+实验，验证整个体系结构中各部分的有效性，采用                                                      频特征在信号突变时仍具有一定的辨识度。通过
+训练集准确率(TrainAcc)、验证集准确率(ValAcc)作                                            MSFIA 进行多尺度特征融合后，特征图变得更加明
+为模型训练的评估指标，训练过程如图 6 所示。                                                     显，体现出更高的鲁棒性。整体而言，DWTConv
+         1.0                                                                在信号的频率分解方面表现优异，而 MSFIA 通过
+         0.9
+         0.8
+                              1.00                                          融合多尺度特征，有效抑制了噪声的干扰，增强了
+                              0.99
+         0.7                  0.98
+                              0.97
+                                                                            特征提取的稳健性和有效性，从而在抗噪能力和特
+         0.6                  0.96                                          征表达方面均表现出显著的优势。
+   准确率
+
+
+
+
+         0.5                  0.95
+                                 21   23 25   27   29
+         0.4                                                                                       SNR=100 dB                      SNR=30 dB
+                                                                                                                              1
+                                                                                幅值/pu
+
+
+
+
+                                                                                                                     幅值/pu
+                                                                                         1
+         0.3                    A:TrainAcc         A:ValAcc
+                                                                                         0                                    0
+                                B:TrainAcc         B:ValAcc
+         0.2                                                                            -1                                   -1
+                                C:TrainAcc         C:ValAcc                               0          320           640         0     320          640
+         0.1                    D:TrainAcc         D:ValAcc                                        采样点数/个                          采样点数/个
+                                                                                                                  (a) 原始信号
+         0.0
+            1   5    9   13    17 21 25 29          33   37   41   45
+                               训练回合数/个
+                                                                                         0           320         640  0     320                   640
+                                                                                                   采样点数/个                 采样点数/个
+                      图 6 消融实验训练过程
+                                                                                                         (b) DWTConv输出的低频特征
+          Fig. 6    Ablation experiment training process
+
+       其中，模型 A 为 TFAWNet；模型 B 为去掉                                                        0           320        640   0     320                   640
+                                                                                                   采样点数/个                 采样点数/个
+DWTConv 后的模型；模型 C 为去掉 MSFIA 后的                                                                           (c) DWTConv输出的高频特征
+
+模型；模型 D 为去掉 SENet 后的模型。
+         对比模型 A 和 B 可知，A 的 ValAcc 始终高于                                                   0           320           640        0      320          640
+                                                                                                   采样点数/个                          采样点数/个
+模型 B，尤其是在训练初期差距尤为明显。去掉                                                                                          (d) MSFIA融合后特征
+
+DWTConv 后，验证精度在前 5 次迭代后只有 0.52                                                                图7      DWTConv 和 MSFIA 输出特征图
+左右，而模型 A 则可以达到约 0.95 以上，且稳定                                                        Fig. 7         DWTConv and MSFIA output feature maps
+性好，表明 DWTConv 模块能够有效提取信号的时                                                               为验证提出的 TFAWNet 教师模型在性能上的
+频特征，从而提升模型的收敛速度和整体精度。在                                                      优越性，本文将其与 DNN[17] 、FCN-LSTM[20] 和
+去掉 MSFIA 后，可以看出，在前 13 次迭代中模型                                                Parallel_CNN[28]等网络进行对比研究。本文分别采
+C 训练表现很差，且存在很大的振荡，这表明信号                                                     用训练集样本的 2.5%、5%、10%、25%、50%和
+经过 DWTConv 得到的时频特征过于复杂，模型对                                                  100%对各模型进行训练，以观察不同数据规模下模
+有效的特征不够敏感。MSFIA 的引入则有效融合多                                                   型的表现。模型性能的评估指标选用了 ValAcc，测
+尺度特征，并缩短训练过程。从模型 D 的验证曲线                                                    试集准确率(TestAcc)、精确率(Pre)、召回率(Recall)
+来看，其验证精度最高为 0.975 左右，相较于模型                                                  及 F1 分数。各模型在不同训练集比例下的表现如
+A 有所降低，并且训练回合数比模型 A 多了 19 个                                                 表 3 所示。
+回合，这表明 SENet 通过赋予特征不同的权重，增                                                               从实验结果可以看出，提出的 TFAWNet 在所
+强了有效特征的表达能力，从而提升了模型的整体                                                      有训练集比例下均表现出卓越的性能。当训练集比
+第8期                      徐玉珍等：融合时频自适应小波卷积网络的半监督电能质量扰动识别框架                                                                                                                3125
+
+        表 3 不同训练集比例下教师模型性能对比                                       ShuffleNet、MobileNet、EfficientNet 及 SqueezeNet
+          Table 3    Comparison of teacher model                   在教师模型所用标签数据集上的性能，结果如图 8
+       performance under different training set ratios
+                                                                   所示。
+训练集                                     评价指标
+           对比模型
+ 比例                   ValAcc TestAcc     Pre     Recall    F1
+                                                                                                                                                                        0.95
+          TFAWNet     0.9333   0.9256   0.9288   0.9256   0.9250                                                                                                        0.90
+                                                                                1.0
+          FCN-LSTM    0.8417   0.8360   0.8405   0.8360   0.8336                                                                                                        0.85
+
+
+
+
+                                                                     TrainAcc
+ 2.5%
+            DNN       0.8583   0.8578   0.8603   0.8578   0.8569                0.8                                                                                     0.80
+
+         Parallel_CNN 0.6222   0.6349   0.6549   0.6349   0.6240                                                                                                        0.75
+                                                                                0.6                                                                                     0.70
+          TFAWNet     0.9431   0.9513   0.9527   0.9513   0.9511
+                                                                                                                                                                        0.65
+          FCN-LSTM    0.9125   0.9208   0.9230   0.9208   0.9206
+ 5%                                                                                                   et                                                      100
+                                                                                              t   N
+            DNN       0.8764   0.8869   0.8880   0.8869   0.8864                           en                     et                                     50
+                                                                                   fi   ci                   eN                                    25
+                                                                                Ef                       ffl                  et             10          /%
+         Parallel_CNN 0.8181   0.8261   0.8396   0.8261   0.8250                                                                                        例
+                                                                                                      hu           5    集比
+                                                                                                                       ile
+                                                                                                                          N
+                                                                                          S                 et 2.5
+          TFAWNet     0.9653   0.9637   0.9657   0.9637   0.9636                        模型      ob
+                                                                                                         ze
+                                                                                                           N         训练
+                                                                                           名 M          e
+                                                                                            称         ue
+          FCN-LSTM    0.9340   0.9293   0.9322   0.9293   0.9289                                   Sq
+ 10%                                                                                        (a) 不同模型在不同训练集比例下的TrainAcc
+            DNN       0.9264   0.9266   0.9281   0.9266   0.9262
+         Parallel_CNN 0.8410   0.8397   0.8483   0.8397   0.8394
+          TFAWNet     0.9725   0.9705   0.9716   0.9705   0.9704
+                                                                                1.0                                                                                     0.9
+          FCN-LSTM    0.9475   0.9442   0.9457   0.9442   0.9441
+ 25%
+                                                                     ValAcc
+
+
+
+            DNN       0.9456   0.9426   0.9443   0.9426   0.9423                                                                                                        0.8
+                                                                                0.8
+         Parallel_CNN 0.9311   0.9271   0.9317   0.9271   0.9269
+                                                                                                                                                                        0.7
+          TFAWNet     0.9819   0.9785   0.9788   0.9785   0.9785                0.6
+
+          FCN-LSTM    0.9704   0.9709   0.9716   0.9709   0.9709                                                                                                        0.6
+ 50%
+            DNN       0.9543   0.9558   0.9577   0.9558   0.9556                                  et                                                              100
+                                                                                             tN                                                          50
+                                                                                          ien     et                                              25         /%
+         Parallel_CNN 0.9336   0.9349   0.9384   0.9349   0.9346                    ff ic    fle
+                                                                                                N
+                                                                                                                                                            例
+                                                                                E         uf              et                                 10         比
+                                                                                                         N                               5          集
+          TFAWNet     0.9853   0.9844   0.9846   0.9844   0.9843                        Sh           ile          et                              训练
+                                                                                      模型          ob             N                 2.5
+                                                                                         名称 M                 eze
+          FCN-LSTM    0.9774   0.9770   0.9776   0.9770   0.9769                                           ue
+ 100%                                                                                                   Sq
+            DNN       0.9665   0.9652   0.9667   0.9652   0.9651                                           (b) 不同模型在不同训练集比例下的ValAcc
+         Parallel_CNN 0.9542   0.9534   0.9570   0.9534   0.9531
+                                                                                                      图 8 不同学生模型训练性能对比图
+例为 100%时，TFAWNet 的各项评价指标均超过                                                     Fig. 8                      Comparison of training performance of
+98%。随着训练集数据量的减少，各个网络的性能                                                                                                  different student models
+
+有所下降，但 TFAWNet 的各项指标依然保持领先，                                                     从图 8 可以看出，当训练集比例为 100%时，
+且其下降趋势比其他网络更为平缓。特别是在训练                                             除 SqueezeNet 外其他 3 个模型的指标均达到 96%
+集比例降至 2.5%时，TFAWNet 的各项指标仍保持                                       以上，而 SqueezeNet 表现最差，其指标约为 92%。
+在 92%以上，仅下降约 6%，而 FCN-LSTM 模型和                                     随着训练集比例的减少，各个模型的性能均有所下
+DNN 模型的评价指标则分别下降了约 14%和 11%。                                       降，但 EfficientNet 的 ValAcc 始终优于其他 3 个模
+Parallel_CNN 模型的表现最差，其评价指标从约                                       型。特别是在训练集比例为 5%时，EfficientNet 的
+95%降至 63%左右，下降了约 32%，无法有效完成                                        ValAcc 相较于 ShuffleNet、MobileNet、SqueezeNet
+分类任务。总体而言，TFAWNet 在小样本情况下，                                         分别高出 4%、6%、18%左右。因此，本文选择
+如 2.5%和 5%的训练集比例，依然保持了良好的分                                         EfficientNet 作为学生模型。
+类性能，显示出其对训练数据规模的不敏感性以及                                                          在选定好教师模型和学生模型之后，需要确定
+强大的泛化能力。                                                           半监督框架的置信区间最小值 Cmin，以获得最优性
+3.3 半监督学习框架性能分析                                                    能。本文对比了不同 Cmin 下的学生模型在混合数据
+    所提半监督学习框架，不仅需要优异性能的教                                           集下的表现，如图 9 所示。
+师模型，同时也需要表现突出的学生模型。考虑到                                                          由图 9 可以看出，Cmin 对模型的测试准确率产
+学生模型需部署，大小与复杂度是模型选择的重要                                             生了非单调的影响。具体来说，Cmin 在 0.85~0.99
+影响 因素。因 此，本文对比 了经典轻 量级网 络                                          变化时，测试准确率呈现出“中间高、两头低”的
+3126                                                                      中       国      电     机   工    程       学    报                                         第 46 卷
+
+                                                                                                   在实际应用中尤其适用于标注资源受限的场景，通
+                                                                                       0.98
+             0.98
+                                                                                                   过充分利用未标注数据，显著提升模型的泛化能力
+                                                                                       0.97
+                                                                                                   和性能。
+                                                                                       0.96
+             0.96                                                                                  3.4 边缘计算平台性能分析
+   TestAcc
+
+
+
+
+                                                                                       0.95
+                                                                                                            为验证轻量化学生网络在边缘设备中的实际
+             0.94                                                                      0.94
+                                                                                                   应用效果，本文将其部署在树莓派 4B 上进行实验，
+                                                                                       0.93
+             0.92
+                                                                                       0.92
+                                                                                                   如图 10 所示。树莓派 4B 是一种具备较强计算能力
+                100
+                                                                                1.00               且功耗较低的轻量化边缘计算设备，特别适用于资
+                      训          50                                0.95
+                          练
+                              集
+                                比                        0.90   Cmin
+                                                                                                   源受限的边缘应用场景。此外，使用 NCS2 神经计
+                                  例
+                                      /%       0 0.85
+                                                                                                   算棒可以进一步加快其推理速度。
+                      图 9 不同置信区间测试性能对比图
+                                  Fig. 9        Comparison of
+    test performance with different confidence intervals
+趋势。当 Cmin 于中间值附近时，模型的测试准确率
+最高，这表明适中的置信区间能够更好地平衡模型
+对训练集和测试集的拟合能力。而在 Cmin 接近极端
+值时，测试准确率出现下降，可能是因为较小的置
+信区间限制了模型对未标注数据的学习，导致泛化
+不足；而过大的置信区间则可能使模型过拟合于某
+些特定的训练样本，影响了其在测试集上的表现。
+             为了验证半监督算法的有效性，本文采用有监                                                                                             图 10 边缘计算平台
+督方式训练的 EfficientNet 模型，与半监督方式训                                                                                       Fig. 10    Edge computing platform
+练得到的测试准确率最高和最低的 EfficientNet 模                                                                              本文使用含 2.5%有标签样本(每类扰动 50 个样
+型，在学生网络的有标签测试集上进行了对比验                                                                              本)训练得到的 EfficientNet 模型部署在树莓派 4B
+证。具体结果如表 4 所示。                                                                                     平台上。为验证其性能，基于实测数据集进行验证，
+                                 表 4 半监督算法的性能                                                      结果如表 5 所示。
+  Table 4                 Performance of semi-supervised algorithms                                                      表 5 边缘计算平台性能分析
+ 训练集                  有监督                      Cmin=0.93                  Cmin=0.99                    Table 5      Edge computing platform performance analysis
+  比例                  TestAcc              TestAcc      提升/%       TestAcc             提升/%                                                Cmin
+                                                                                                       评价指标
+  2.5%                0.8282               0.9327       10.45          0.9182           9.00                           0.85       0.90      0.93      0.95       0.99
+   5%                 0.9105               0.9514       4.09           0.9451           3.46            TestAcc       0.984 2    0.994 2   0.998 3   0.985 0    0.915 8
+  10%                 0.9450               0.9628       1.78           0.9480           0.30              Pre         0.986 7    0.994 5   0.998 4   0.987 9    0.874 2
+  25%                 0.9517               0.9684       1.67           0.9616           0.99             Recall       0.984 2    0.994 2   0.998 3   0.985 0    0.915 8
+  50%                 0.9623               0.9768       1.45           0.9681           0.58              F1          0.984 0    0.994 2   0.998 3   0.985 3    0.888 1
+  100%                0.9718               0.9810       0.92           0.9751           0.33           平均耗时                                10 ms
+
+             从表 4 可以看出，半监督算法在不同训练集比                                                                         从表 5 可以看出，Cmin 对模型测试集准确率的
+例下明显优于有监督算法。特别是在训练集比例仅                                                                             非单调影响在边缘部署中得到了进一步体现，适中
+为 2.5%时，Cmin=0.93 和 0.99 的半监督模型分别提                                                                 的置信区间使模型在边缘计算平台上达到了较高
+升了 10.45%和 9.00%的性能。表明在标注数据有限                                                                      的测试精度。此外，模型的平均推理耗时为 10 ms，
+的情况下，所提半监督方法能够有效利用未标注数                                                                             小于单个采样时间窗宽度 200 ms，满足 PQD 实时
+据增强模型性能。随着训练集比例的增加，这种性                                                                             检测的性能要求。实验结果证明，该模型在边缘计
+能提升逐渐减小，这一趋势表明，半监督算法在标                                                                             算平台上不仅达到了较高的检测精度，还具备实时
+注数据稀缺时具有明显优势，但当标注数据充足                                                                              性的良好表现，符合边缘端应用的需求。为进一步
+时，其相对提升效果趋于有限。因此，半监督方法                                                                             分析模型在实测数据上的分类性能，本文对
+第8期                                  徐玉珍等：融合时频自适应小波卷积网络的半监督电能质量扰动识别框架                                                         3127
+
+Cmin=0.93 的模型输出结果进行了可视化，绘制其混                                              3）为验证所提方法在实际应用中的可行性，
+淆矩阵如图 11 所示。                                                            本文基于树莓派 4B 构建了边缘计算识别系统，并
+
+          C0 100 0
+                                                                  100   部署了训练后的 EfficientNet 轻量化学生网络。在
+                       0     0   0   0   0   0   0   0   0   0
+          C1 0 100     0     0   0   0   0   0   0   0   0   0
+                                                                  90    实测数据集上的测试结果表明，该模型的分类准确
+          C2 0    0    100 0     0   0   0   0   0   0   0   0    80    率达到 99.83%，且平均识别时间仅为 10 ms，验证
+          C3 0    0    0 100     0   0   0   0   0   0   0   0    70    了该方法在资源受限的边缘设备上的高效性与实
+          C4 0    0    0     0   100 0   0   0   0   0   0   0    60    时性。
+    真实值
+
+
+
+
+          C5 0    0    0     0   0 100 0     0   0   0   0   0
+                                                                  50      本文所采用的伪标签算法的训练过程集中于
+          C6 0    0    0     0   0   0   100 0   0   0   0   0
+          C7 0
+                                                                  40    上层，未充分考虑末端训练及数据传输效率问题。
+                  0    0     0   0   0   0 100   0   0   0   0
+          C8 0    0    0     0   0   0   0   0   100 0   0   0    30    未来，在 PQD 领域，亟需探索分布式训练与模型
+          C9 0    0    0     0   0   0   0   0   0 100 0     0    20    参数上传策略，以提升训练效率并降低数据传输负
+          C10 0   0    0     0   0   0   0   0   0   0   100 0
+                                                                  10    担。此外，进一步研究如何将分布式训练与半监督
+          C11 0   0    2     0   0   0   0   0   0   0   0   98
+                                                                  0     学习相结合，以应对 PQD 识别中的挑战，具有重
+             C0 C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11
+                                                                        要的理论与应用价值。
+                                     预测值
+
+              图 11 最优置信区间模型输出混淆矩阵                                       参考文献
+             Fig. 11       Optimal confidence interval model
+                                                                        [1] 汪飞，全晓庆，任林涛．电能质量扰动检测与识别方法
+                           output confusion matrix
+                                                                          研 究 综 述[J] ． 中 国电 机 工程学 报 ， 2021 ， 41(12) ：
+           从图 11 可以看出，模型在识别“暂降+波动”                                        4104-4120．
+信号时存在一定偏差，少量样本被识别为 C2“暂                                                   WANG Fei，QUAN Xiaoqing，REN Lintao．Review of
+降”。这一误分类的原因在于模型对信号周期间特                                                    power quality disturbance detection and identification
+                                                                          methods[J]．Proceedings of the CSEE，2021，41(12)：
+征的敏感性不足以及误分信号波动幅度较弱，导致
+                                                                          4104-4120(in Chinese)．
+在处理周期性波动时出现误判。整体来看，模型的
+                                                                        [2] 王强钢，周亦尧，廖建权，等．直流配电网电能质量研
+性能仍然较为优异，满足边缘计算准确性要求，为                                                    究综述[J]．电力系统自动化，2023，47(7)：193-207．
+进一步应用提供了坚实的基础。未来的工作将集中                                                    WANG Qianggang，ZHOU Yiyao，LIAO Jianquan，et al．
+于增强模型对周期性特征的捕捉能力，以进一步提                                                    Review on power quality in DC distribution network[J]．
+高对复杂扰动信号的识别精度。                                                            Automation of Electric Power Systems，2023，47(7)：
+                                                                          193-207(in Chinese)．
+4         结论                                                            [3] 王博，杨德友，蔡国伟．高比例新能源接入下电力系统
+                                                                          惯量相关问题研究综述[J]．电网技术，2020，44(8)：
+           针对当前 PQD 标签数据获取困难的现状，本
+                                                                          2998-3006．
+文提出一种基于 TFAWNet 的半监督 PQD 识别框                                              WANG Bo，YANG Deyou，CAI Guowei．Review of
+架。该方法有效结合有限的标记数据与大量未标记                                                    research on power system inertia related issues in the
+数据，实现了 PQD 的精确识别。主要结论如下：                                                  context   of high     penetration   of renewable    power
+           1）设计一种用于半监督学习的教师模型                                             generation[J]．Power System Technology，2020，44(8)：
+                                                                          2998-3006(in Chinese)．
+TFAWNet。该模型将 DWT 引入深度学习框架，通
+                                                                        [4] 汪颖，钟啟明，刘育权，等．新型电力系统的电能质量
+过 DWTConv 提取信号多尺度时频特征。同时，提
+                                                                          扰动治理关键技术综述及展望[J]．中国电机工程学报，
+出 MSFIA，增强模型对关键特征的关注能力。在少                                                 2025，45(22)：8670-8690．
+量训练样本的情况下，TFAWNet 性能显著优于其他                                                WANG Ying，ZHONG Qiming，LIU Yuquan，et al．
+网络，有利于提高半监督学习的可靠性。                                                        Review and prospects of key technologies for power
+           2）采用伪标签算法，构建一种基于 TFAWNet                                       quality disturbance    mitigation   in   new-type   power
+                                                                          systems[J]．Proceedings of the CSEE，2025，45(22)：
+的半监督 PQD 识别框架，利用少量的标记样本与
+                                                                          8670-8690(in Chinese)．
+大量的未标记样本，实现了 PQD 高效分类。基于
+                                                                        [5] 贺虎成，王承海，辛钟毓，等．一种组合重构的电能质
+该框架的轻量化网络在每类扰动 50 个样本的情况                                                  量扰动特征提取方法[J]．电力系统保护与控制，2023，
+下，识别准确率达到 93.27%。                                                         51(10)：34-44．
+3128                                         中    国     电   机   工   程   学   报                                       第 46 卷
+
+   DONG Hucheng，WANG Chenghai，XIN Zhongyu，et al．                    度残差网络的电能质量复合扰动识别[J]．电网技术，
+   A feature extraction method for power quality disturbance        2023，47(1)：369-376．
+   based on reconstructed combination[J]．Power System               HE Caijun，LI Kaicheng，YANG Wangwang，et al．Power
+   Protection and Control，2023，51(10)：34-44(in Chinese)．            quality compound disturbance identification based on dual
+[6] 徐艳春，高永康，李振兴，等．基于 VMD 初始化 S 变                                    channel GAF and depth residual network[J] ． Power
+   换的混合动力系统电能质量扰动检测与分类[J]．中国电                                       System Technology，2023，47(1)：369-376(in Chinese)．
+   机工程学报，2019，39(16)：4786-4798．                                 [13] LUO Yi，LI Kaicheng，LI Linfeng，et al．A novel
+   XU Yanchun，GAO Yongkang，LI Zhenxing，et al．Power                  recognition   method     for   complex    power     quality
+   quality disturbance detection and classification of hybrid       disturbances based on rotation vector and fuzzy transfer
+   power system based on VMD initialization S-transform             field[J]．IEEE Transactions on Industrial Informatics，
+   [J]．Proceedings of the CSEE，2019，39(16)：4786-4798(in             2024，20(11)：12502-12512．
+   Chinese)．                                                    [14] 罗溢，李开成，肖贤贵，等．基于马尔可夫转移场和深
+[7] 王海东，程杉，徐其平，等．基于深度学习融合网络的                                        度残差网络的电能质量复合扰动多标签分类[J]．中国电
+   含噪电能质量扰动识别方法[J]．电力系统保护与控制，                                       机工程学报，2024，44(7)：2519-2530．
+   2024，52(10)：11-20．                                               LUO Yi，LI Kaicheng，XIAO Xiangui，et al．Multi-label
+   WANG Haidong，CHENG Shan，XU Qiping，et al．                         classification of power quality composite disturbances
+   Identification of power quality disturbance with noises          based on Markov transfer field and ResNet[J] ．
+   based on an integrated deep learning network[J]．Power            Proceedings of the CSEE，2024，44(7)：2519-2530(in
+   System Protection and Control，2024，52(10)：11-20(in               Chinese)．
+   Chinese)．                                                    [15] SONG Juncai，WU Jing，WANG Xiaoqing，et al．Accurate
+[8] 尹柏强，陈奇彬，李兵，等．基于改进 Kaiser 窗快速 S                                  classification of power quality disturbance based on 3D
+   变换和 LightGBM 的电能质量扰动识别与分类新方法                                     visualized spiral curve and hybrid ER-MVCNN model
+   [J]．中国电机工程学报，2021，41(24)：8372-8383．                              [J]．Measurement，2024，231：114654．
+   YIN Baiqiang，CHEN Qibin，LI Bing，et al．A new method           [16] 张逸，欧杰宇，金涛，等．基于特征图像组合与改进
+   for identification and classification of power quality           ResNet-18 的电能质量扰动识别方法[J]．中国电机工程
+   disturbance based on modified kaiser window fast                 学报，2024，44(7)：2531-2544．
+   S-transform and LightGBM[J]．Proceedings of the CSEE，             ZHANG Yi，OU Jieyu，JIN Tao，et al．Power quality
+   2021，41(24)：8372-8383(in Chinese)．                               disturbance recognition method based on feature image
+[9] 张明龙，张振宇，罗翔，等．基于多核支持向量机的混                                        combination and modified ResNet-18[J]．Proceedings of
+   合扰动波形辨识算法研究[J]．电力系统保护与控制，                                        the CSEE，2024，44(7)：2531-2544(in Chinese)．
+   2022，50(15)：43-49．                                           [17] WANG Shouxiang，CHEN Haiwen．A novel deep learning
+   ZHANG Minglong，ZHANG Zhenyu，LUO Xiang，et al．                     method for the classification of power quality disturbances
+   Complex disturbance waveform recognition based on a              using deep convolutional neural network[J] ． Applied
+   multi-kernel support vector machine[J]．Power System              Energy，2019，235：1126-1140．
+   Protection and Control，2022，50(15)：43-49(in Chinese)．        [18] 刘宇龙，崔宪阳，袁丁，等．基于多级注意力机制融合
+[10] 吴建章，梅飞，郑建勇，等．基于改进经验小波变换和                                       的电能质量扰动点分类及时间定位方法研究[J]．中国电
+   XGBoost 的电能质量复合扰动分类[J]．电工技术学报，                                   机工程学报，2024，44(11)：4298-4310．
+   2022，37(1)：232-243，253．                                          LIU Yulong，CUI Xianyang，YUAN Ding，et al．Research
+   WU Jianzhang，MEI Fei，ZHENG Jianyong，et al．                       on multi-level attention mechanism optimized method for
+   Recognition of multiple power quality disturbances based         point classification and time interval identification of
+   on   modified    empirical     wavelet   transform    and        power quality disturbances[J]．Proceedings of the CSEE，
+   XGBoost[J] ． Transactions of China Electrotechnical              2024，44(11)：4298-4310(in Chinese)．
+   Society，2022，37(1)：232-243，253(in Chinese)．                  [19] 武昭旭，杨岸，祝龙记．基于循环神经网络的电能质量
+[11] HE Minjun，MA Jun，MINGOTTI A，et al．An advanced                  扰动识别[J]．电力系统保护与控制，2020，48(18)：
+                                                                                                 88-94．
+   diagnose    framework    for   complex    power    quality       WU Zhaoxu，YANG An，ZHU Longji．Power quality
+   disturbances using adaptive KS-transform and JetLeaf             disturbance recognition based on a recurrent neural
+   synth network[J] ． IEEE Transactions on Industrial               network[J]．Power System Protection and Control，2020，
+   Electronics ， 2025 ， 72(2) ： 1617-1627 ， doi ：                   48(18)：88-94(in Chinese)．
+   10.1109/TIE.2024.3419248．                                    [20] 龚正，邹阳，金涛，等．基于特征融合并行优化模型的
+[12] 贺才郡，李开成，杨王旺，等．基于双通道 GAF 和深                                     电能质量扰动分类方法[J]．中国电机工程学报，2023，
+第8期                       徐玉珍等：融合时频自适应小波卷积网络的半监督电能质量扰动识别框架                                                                 3129
+
+    43(3)：1017-1026．                                                      aluminum electrolysis process[J]．IEEE Transactions on
+    GONG Zheng，ZOU Yang，JIN Tao，et al．Classification                      Automation Science and Engineering，2024，21(2)：
+    method of power quality disturbances based on optimized               1284-1296．
+    parallel model of features merging[J]．Proceedings of the           [27] 贺 才 郡 ， 李 开 成 ， 董 宇 飞 ， 等 ． 基 于 知 识 蒸 馏 与
+    CSEE，2023，43(3)：1017-1026(in Chinese)．                                RP-MobileNetV3 的电能质量复合扰动识别[J]．电力系
+[21] DENG Yaping ， WANG Lu ， JIA Hao ， et al ． A                          统保护与控制，2023，51(14)：75-84．
+    sequence-to-sequence deep learning architecture based on              HE Caijun，LI Kaicheng，DONG Yufei，et al．Power
+    bidirectional GRU for type recognition and time location              quality compound disturbance identification based on
+    of combined power quality disturbance[J] ． IEEE                       knowledge distillation and RP-MobilenetV3[J] ．Power
+    Transactions on Industrial Informatics，2019，15(8)：                    System Protection and Control，2023，51(14)：75-84(in
+    4481-4493．                                                            Chinese)．
+[22] LIU Yulong，YUAN Ding，FAN Hongwei，et al．A                          [28] 王飞，王立辉，周少武，等．基于双分支并联的特征融
+    multidimensional feature-driven ensemble model for                    合电能质量扰动分类方法[J]．电力系统保护与控制，
+    accurate   classification   of   complex     power       quality      2024，52(5)：178-187．
+    disturbance[J]．IEEE Transactions on Instrumentation and               WANG Fei，WANG Lihui，ZHOU Shaowu，et al．A
+    Measurement，2023，72：1501613．                                          dual-branch parallel-based feature fusion approach for
+[23] 张润丰，姚伟，石重托，等．融合虚拟对抗训练和均值                                             power quality disturbance classification[J]．Power System
+    教师模型的主导失稳模式识别半监督学习框架[J]．中国                                            Protection and Control，2024，52(5)：178-187(in Chinese)．
+    电机工程学报，2022，42(20)：7497-7508．
+    ZHANG Runfeng，YAO Wei，SHI Zhongtuo，et al．                                             在线出版日期：2025-03-24。
+    Semi-supervised     learning     framework    of     dominant                         收稿日期：2024-12-18。
+    instability mode identification via fusion of virtual                                 作者简介：
+    adversarial training and mean teacher model [J] ．                                     徐玉珍(1975)，女，副教授，硕士生导
+    Proceedings of the CSEE，2022，42(20)：7497-7508(in                                   师，研究方向为电力电子及其变流技术，
+    Chinese)．                                                                          xyz@fzu.edu.cn；
+[24] 王凯，赵刚，龚晓成，等．面向电力调度知识建模的半                                             徐玉珍             高子奥(2000)，男，硕士研究生，研究
+    监 督 实 体 识 别 方 法 [J] ． 电 网 技 术 ， 2023 ， 47(9) ：                                     方向为电能质量扰动分析研究，230127127
+    3855-3863．                                                                         @fzu.edu.cn；
+    WANG Kai，ZHAO Gang，GONG Xiaocheng，et al．                                              刘宇龙(1992)，男，博士，研究方向为
+    Semi-supervised entity recognition for power dispatching                           电气信号检测技术及电能质量扰动分析研
+    knowledge modeling[J] ．Power System Technology，                                    究，liuyl@pku.edu.cn；
+    2023，47(9)：3855-3863(in Chinese)．                                                     陈煌滨(2000)，男，硕士研究生，研究
+[25] ZHAI Xinpeng，TIAN Jianyan，LI Jifu．A semi-supervised                               方向为电能质量扰动分析研究，220120046
+    fault diagnosis method for transformers based on                                   @fzu.edu.cn；
+                                                                                          *
+    discriminative feature enhancement and adaptive weight                                    通信作者：金涛(1976)，男，教授，
+    adjustment[J]．IEEE Transactions on Instrumentation and                             博士生导师，研究方向为电力系统稳定性
+    Measurement ， 2024 ， 73 ： 3520710 ， doi ：                                          分析、在线测量与信号处理及新能源技术，
+    10.1109/TIM.2024.3398079．                                                          jintly@fzu.edu.cn。
+[26] WANG Jie，XIE Shiwen，XIE Yongfang，et al．Label                                                        (责任编辑 邱丽萍)
+    propagation    with    contrastive    anchors      for      deep
+    semi-supervised    superheat     degree    identification     in
+

@@ -1,0 +1,646 @@
+      4698                                                           IEEE TRANSACTIONS ON INDUSTRIAL INFORMATICS, VOL. 18, NO. 7, JULY 2022
+
+
+
+
+               A Novel Label-Guided Attention Method for
+                  Multilabel Classification of Multiple
+                      Power Quality Disturbances
+             Dexi Gu , Yunpeng Gao , Senior Member, IEEE, Yunfeng Li , Yanqing Zhu , and Cong Wu
+
+
+         Abstract—Multiple power quality disturbance (PQD) con-
+      tains various single disturbances, so its classification is
+      essentially a multilabel classification task. Due to the
+      complexity of multilabel tasks, the performance of exist-
+      ing multilabel methods for PQD is hard to meet practical
+      needs, which severely restricts the engineering applica-
+      tion of multilabel methods. Therefore, in this article, we
+      propose a novel multilabel method named LGAN, which
+      incorporates deep learning and explores the correlations
+      between PQD labels to improve performance. First, 1-D con-
+      volutional neural network extracts features automatically
+      from PQD signals. Then, a label-guided attention module                         Fig. 1. Framework contrast between the proposed method and the
+      is adopted to learn the specific feature representation of                      traditional methods.
+      each PQD category. Finally, the bidirectional recurrent neu-
+      ral network models the label correlations from the label-
+      related features, and then predicts the final PQD category.
+      Various comparative experiments show that the perfor-
+      mance of LGAN is much better than the existing multilabel                       These difficulties place a higher requirement on the multiple
+      methods. Additionally, the test using real-time detection                       PQD classification methods.
+      platform further verifies the availability of the proposed                         The problem of PQD classification can be divided into two
+      method.                                                                         stages: feature extraction and disturbances classification. So far,
+         Index Terms—Deep learning (DL), label correlation, mul-                      most studies on multiple PQD classification mainly focus on the
+      tilabel classification, power quality disturbances (PQD).                       improvement of feature extraction techniques. These studies aim
+                                                                                      at improving feature extraction ability of the model with signal
+                                                                                      processing algorithms. For example, [3] and [4] extract statistical
+                                 I. INTRODUCTION                                      features, such as energy, mean value, and root mean square, from
+              ITH the massive access of distributed energy systems                    the coefficients of wavelet decomposition. In the classification
+      W       and various switch devices, power quality disturbances
+      (PQD) occur more frequently [1]. Actually, PQD events are
+                                                                                      stage, these methods carry out PQD classification by using a
+                                                                                      multiclass approach (regarding each multiple disturbance as a
+      generally not ideal single disturbances, but exist in the form of               new category). The abovementioned traditional methods extract
+      multiple disturbances in real-life power systems [2]. Compared                  features in a hand-engineered approach, which have difficulty
+      to single disturbance classification, the difficulties on multiple              in selecting effective features. There should be a more efficient
+      disturbance classification are mainly manifested in two aspects                 method to automatically extract PQD features. In addition, a
+      as follows. 1) The mutual influence of various single distur-                   multiclass approach is still a single-label classification method
+      bances can cause failure features. 2) Too many PQD categories                   in essence. The increase of label types leads to the geometric
+      easily lead to the performance degradation of the classifier.                   growth of the classification categories, which can reduce the
+                                                                                      performance of classifiers. To overcome the abovementioned
+                                                                                      difficulties, we integrate deep learning (DL) with multilabel clas-
+         Manuscript received August 8, 2021; accepted September 18, 2021.             sifier, and propose a new framework in this article. Compared
+      Date of publication October 4, 2021; date of current version April 13,
+      2022. This work was supported by the National Natural Science Foun-             to traditional methods, the proposed method realizes automatic
+      dation of China under Grant 51777061. Paper no. TII-21-3454. (Corre-            features extraction by using DL and uses a multilabel classi-
+      sponding author: Yunpeng Gao.)                                                  fier instead of a multiclass classifier. The framework contrast
+         The authors are with the College of Electrical and Informa-
+      tion Engineering, Hunan University, Changsha 410082, China (e-                  between the proposed method and the traditional methods is
+      mail: dexigu@hnu.edu.cn; gaoyp@hnu.edu.cn; yfli613@hnu.edu.cn;                  shown in Fig. 1.
+      zyq@hnu.edu.cn; congwu@hnu.edu.cn).                                                At present, the PQD classification methods that extract fea-
+         Color versions of one or more figures in this article are available at
+      https://doi.org/10.1109/TII.2021.3115567.                                       tures automatically with DL algorithms are well established
+         Digital Object Identifier 10.1109/TII.2021.3115567                           [5]–[8]. But the existing multilabel classification methods for
+                         1551-3203 © 2021 IEEE. Personal use is permitted, but republication/redistribution requires IEEE permission.
+                                       See https://www.ieee.org/publications/rights/index.html for more information.
+
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+    GU et al.: NOVEL LABEL-GUIDED ATTENTION METHOD FOR MULTILABEL CLASSIFICATION                                                                             4699
+
+
+
+    PQD classification still have some problems. In fact, each                       [4], empirical mode decomposition (EMD) [13], and variational
+    disturbance of multiple PQD is not independent, i.e., the cat-                   mode decomposition (VMD) [14], [15], effectively improves the
+    egory labels are correlated. In the multilabel problem, using                    performance of multiple disturbance classification. However,
+    the correlation between labels to improve performance is a                       these methods extract features manually, which increases the
+    challenging task. Luo et al. [9] used a conditional probability                  complexity of the method implementation. Besides, feature
+    table to represent the correlation between PQD labels. However,                  selection after feature extraction is also a challenging task.
+    because the conditional probability needs to be extracted from                   There should be an automatic method to extract PQD features
+    the feature distribution of PQD, this method is not an end-to-end                efficiently.
+    solution. Dong et al. [10] used multitask learning to transform                     Recently, DL methods have shown excellent feature extrac-
+    the correlations between PQD labels into the correlations be-                    tion capability in the field of image, audio, and text classi-
+    tween tasks, and proposed an end-to-end multilabel method.                       fication [16]. Some academics use DL algorithms to extract
+    But the multitask learning method only considers the correlation                 PQD features and have achieved many advanced results. Mo-
+    between tasks, and ignores the dependencies between different                    han et al. [5] first explored the performance of various DL
+    PQD labels in a task.                                                            methods in the identification of multiple PQD. Liu et al. [6],
+       To address the abovementioned issues, we propose a novel                      [7] preprocessed the PQD signal with signal processing meth-
+    label-guided attention network (LGAN) that incorporates a PQD                    ods, and then utilized DL algorithms for feature extraction and
+    label to guide learning label-specific features and explores their               PQD classification. Wang et al. [8] summarized the general
+    correlations to improve multilabel classification. More specif-                  design principles and training strategies of DL models in the
+    ically, we first implement a feature extractor based on 1-D                      field of PQD classification. The application of DL methods
+    convolutional neural network (1DCNN). Then, we design a                          has greatly improved the feature extraction ability of multi-
+    label-decoupling module that use label-guided attention to learn                 ple PQD. Nonetheless, all the abovementioned methods be-
+    label-related features. Finally, we utilize a bidirectional recurrent            long to a single-label classification method in essence. The
+    neural network (BRNN) to further model correlations between                      increase of label types leads to the geometric growth of the
+    different PQD labels. The main contributions of this article are                 classification categories, which can reduce the performance of
+    as follows.                                                                      classifiers.
+        1) We propose a novel multilabel framework for multiple                         In fact, each multiple disturbance contains various single
+           PQD classification, which can automatically extract fea-                  disturbances, so its classification problem is essentially a mul-
+           tures and effectively learn the correlations between PQD                  tilabel classification problem [17]. Some academics use multi-
+           labels in an end-to-end way.                                              label classifiers to solve the geometric growth problem of the
+        2) Considering the correlation between PQD labels, we use                    categories. Zhou et al. [17] applied the multilabel classification
+           the memory characteristics of RNN to capture the higher                   method based on a ranking approach [18] to the multiple PQD
+           order correlations between PQD labels.                                    classification problem, and proposes five evaluation metrics
+        3) In the process of constructing the network, a label-                      for multilabel classification. The proposed K-nearest neighbor
+           decoupling module that guides learning label-specific                     Bayesian (KNN-Bayesian) rule is able to identify seven single
+           features is designed based on attention mechanism.                        disturbances and 21 multiple disturbances, which has better clas-
+        4) To verify the validity of the proposed LGAN, a large                      sification performance than traditional methods. Guan et al. [19]
+           number of comparative experiments with CNN models                         designed a multilabel classification method named ML-RBF.
+           and other state-of-the-art existing methods for PQD clas-                 Compared to several common ranking multilabel classification
+           sification are conducted.                                                 methods, the proposed ML-RBF method has the best classifica-
+        5) For online real-time detection, we implement the online                   tion performance under different noises. The work in [2], [15],
+           deployment of the proposed model based on Python and                      and [20] combines multilabel classifiers, such as Rank-SVM
+           microcontroller (MCU).                                                    and extreme learning machine with signal processing meth-
+       The rest of this article is organized as follows. Section II                  ods and designs a variety of state-of-the-art ranking multilabel
+    reviews the related work. Section III introduces the design and                  classification algorithms. The classification experiments of 47
+    implementation of LGAN. In Section IV, various experiments                       types of PQD show that the abovementioned methods further
+    and a real-time detection test are conducted. Finally, Section V                 improve the multilabel classification performance of multiple
+    concludes this article.                                                          PQD. However, these methods do not involve the relative study
+                                                                                     of label correlations. In [9] and [10], the correlations between
+                                                                                     PQD labels is considered, but the classification performance
+                              II. RELATED WORK                                       needs to be improved.
+       In traditional studies, multiple PQD classification is mainly                    Different from all these methods, we propose an end-to-end
+    divided into following three steps: signal processing, feature                   multilabel method, which introduce category information to
+    selection, and classification. These studies aim to obtain better                guide learning label-specific features, and use BRNN to cap-
+    classification performance by improving feature extraction ca-                   ture the correlations between labels. Consequently, our method
+    pabilities. The application of signal processing methods, such                   can learn the higher order label correlations better and obtain
+    as Stockwell transform [11], [12], wavelet transform (WT) [3],                   improved classification performance.
+
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+      4700                                                                        IEEE TRANSACTIONS ON INDUSTRIAL INFORMATICS, VOL. 18, NO. 7, JULY 2022
+
+
+
+
+      Fig. 2.   Framework of the proposed LGAN.
+
+
+
+                                                                                      where m is the convolutional kernel size, kj is the jth weight of
+                                                                                      the convolutional kernel, and b is the bias term.
+                                                                                         Batch normalization (BN) [22] is a normalization processing
+                                                                                      of input data for each layer during the training process, which
+                                                                                      can efficiently reduce overfitting and enhance the training speed.
+                                                                                      BN can be defined as
+                                                                                                                        xi − μx
+                                                                                                               yi = γ ·          +β                            (2)
+      Fig. 3.   Basic structure of the convolutional block.                                                               σx2 + 
+
+                                                                                      where xi is the input data, μx and σx2 are the mean value and
+                III. DESIGN AND IMPLEMENTATION OF LGAN                                variance of xi , respectively, and γ and β are the scale and shift
+                                                                                      parameters, respectively.
+      A. Framework of LGAN                                                               The activation function of each convolutional block is rectified
+         In this section, an overall description of the proposed LGAN                 linear units (Relus) [23] and expressed as follows:
+      framework is given. Fig. 2 illustrates a detailed pipeline of the
+                                                                                                                 f (x) = max(0, x).                             (3)
+      LGAN framework. As can be seen from Fig. 2, LGAN mainly
+      consists of three modules: a feature extractor, a label-decoupling                 Pooling operation is essentially data dimensionality reduc-
+      module, and a BRNN that characterizes the label correlation.                    tion. Max-pooling is a common pooling method, and expressed
+         Given a PQD signal, we first feed it into a deep CNN to                      as follows:
+      generate its feature maps f I . Then, a label-decoupling module
+      is used to learn the specific features {F1 , F2 , . . ., FC } of each                                  hmax = max{xi |xi ∈ N}                             (4)
+      PQD category. The module incorporates the feature vectors
+      {x1 , x2 , . . ., xC } of each PQD label to guide the network to                where N is a set of all data in the area to be pooled.
+      focus on each category label based on feature and location atten-
+      tion. Finally, the BRNN module further captures the correlations                C. Label-Decoupling Module
+      between different PQD labels from label-related features, and                      After feature extraction, the label-decoupling module is used
+      then predicts the final PQD category label.                                     to generate label-related features. In this article, we utilize a
+                                                                                      label-guided attention mechanism (including feature and loca-
+      B. Feature Extractor                                                            tion attention) to implement this module.
+                                                                                         Given an input PQD signal I, the feature extractor first extracts
+         CNN is suitable for extracting the features of array data [21],              its feature maps f I ∈ RL×N , where L and N are the length and
+      and PQD signal is essentially a 1-D array data. Therefore, we                   channel number of the feature maps, respectively, and formu-
+      construct the feature extractor based on 1DCNN. In this arti-                   lated as
+      cle, the feature extractor is composed of stacked convolutional
+      blocks. The basic structure of each convolutional block is shown                                              f I = f1dcnn (I)                            (5)
+      in Fig. 3.
+                                                                                      where f1dcnn (·) is a feature extractor.
+         The PQD signal of n dimension is represented as xn =
+                                                                                         For each PQD category, a one-hot code vector xc is used
+      [x1 , x2 , . . . , xn ]. Then, the process of 1-D convolution of the
+                                                                                      to represent its category information, where c represent the cth
+      signal can be expressed as follows:
+                                                                                      PQD category. The length of label vector xc is the PQD category
+                                    
+                                    m                                                 number C. Then, a low-rank bilinear pooling method [24] is used
+                             ui =         xi+j−1 · kj + b                      (1)    to fuse the signal features f I and label features xc . For each PQD
+                                    j=1                                               category and location (c, l), the fusion process can be expressed
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+    GU et al.: NOVEL LABEL-GUIDED ATTENTION METHOD FOR MULTILABEL CLASSIFICATION                                                                             4701
+
+
+
+    as
+                   f̃c,l
+                     I
+                         = P(tanh((Ufc,l
+                                     I
+                                         )  (Vxc ))) + b                     (6)
+    where tanh(·) is the hyperbolic tangent function, U ∈ Rd1 ×N ,
+    V ∈ Rd1 ×C , P ∈ Rd2 ×d1 , and b ∈ Rd2 are the learnable param-
+    eters, which are implemented by using a fully connected layer. 
+    is the element-wise multiplication operation, and the d1 , d2 , and
+    C are the dimensions of the joint embeddings, output features,
+    and the label vectors, respectively. At this point, an intermediate
+    feature map f̃ I ∈ RC×d2 ×L is obtained.                                         Fig. 4.   Basic structure of BRNN.
+       Then, the channel and spatial attention module proposed
+    in [25] is used to compute attentional coefficients of intermediate
+    feature map f̃ I along two separate dimensions: feature d2 and                        As can be seen from Fig. 4, each RNN cell consists of two
+    location L. For each PQD category and feature (c, d), the feature                node vectors: forward-state vector st and backward-state vector
+    attentional coefficient ac,d is computed by                                      st . The value of each state vector is determined by the input and
+                                                                                     the previous state, and can be calculated by
+      ac,d = σ(W1 (W0 (favg (f̃c,d
+                               I
+                                   ))) + W1 (W0 (fmax (f̃c,d
+                                                         I
+                                                             )))) (7)
+                                                                                                        st = tanh(Uft + Wst−1 + b)                           (11)
+    where σ(·) is the sigmoid function, and favg (·) and fmax (·) denote
+                                                                                                        st = tanh(U ft + W st−1 + b )                   (12)
+    global average pooling and global max pooling [26], respec-
+    tively, W0 ∈ Rd2 /r×d2 and W1 ∈ Rd2 ×d2 /r are the learnable                     where tanh(·) denotes the hyperbolic tangent function, and
+    parameters, which are implemented by using a convolutional                       U, U ∈ Rh×d2 , W, W ∈ Rh×h , and b, b ∈ Rh are learnable
+    layer, and r is the reduction ratio. Note that the Relus activation              weights. h and d2 are the dimensions of state vectors in the
+    function is followed by W0 .                                                     hidden layers and feature vectors in the input layers, respectively.
+       For each PQD category and location (c, l), the location atten-                Here, the correlations between PQD category labels is modeled
+    tional coefficient bc,l is computed by                                           as the matrix W, W that describes the relationship between
+                                                                                     states.
+                     bc,l = σ(fb ([favg (f̃c,l
+                                           I
+                                               ); fmax (f̃c,l
+                                                          I
+                                                              )]))            (8)
+                                                                                        In the output layer, the forward- and backward-state vectors
+    where σ(·) is the sigmoid function, fb (·) represents a convolu-                 are concatenated into an intermediate-state vector, which is used
+    tion operation with only one kernel.                                             to predict the confidence score of the presence of the PQD
+       Finally, we add feature and location attention to the interme-                category. In short, the output score is computed as
+    diate feature map f̃ I in a sequential way, and can be formulated
+                                                                                                             yt = σ(V([st ; st ]) + b)                      (13)
+    as
+                                                                                     where σ(·) denotes the sigmoid function, V ∈ R1×2h is the
+                              Fc = bc,l (ac,d f̃c,d,l
+                                                I
+                                                      )                       (9)
+                                                                                     weight parameters of linear transformation, and b is the bias
+    where ac,d and bc,l are the feature and location attentional coef-               term.
+    ficient, respectively, which indicates the importance of feature                    Finally, a threshold function t(·) is used to convert the ob-
+    d and location l. In the end, we obtain the label-related features               tained probability {y1 , y2 , . . ., yC } of each PQD category into a
+    {F1 , F2 , . . ., FC } for each PQD category.                                    binary code, which is the final PQD label. The threshold function
+                                                                                     t(·) is defined as follows:
+    D. Correlation Between PQD Labels                                                                                 
+                                                                                                                          1, y ⩾ 0.5
+       The BRNN module aims to learn the correlation between                                                t(y) =                    .               (14)
+                                                                                                                          0, y < 0.5
+    PQD labels. Before capturing the label correlation, three convo-
+                                                                                        For each PQD category c, the predicted PQD label is com-
+    lutional layers and a global average pooling layer are introduced
+                                                                                     puted as ỹc = t(yc ). We perform the process for all categories
+    to reduce the dimensionality of label-related features. For each
+                                                                                     and obtain a binary label vector {ỹ1 , ỹ2 , . . ., ỹC }. The “1” in
+    PQD category, the dimensionality reduction process can be
+                                                                                     the binary vector means that the input signal contains the corre-
+    expressed as
+                                                                                     sponding PQD category.
+                               fc = favg (fcnn (Fc ))                       (10)
+                                                                                     E. Training and Evaluation
+    where favg (·) is a global average pooling operation, fcnn (·)
+    represents the stacked convolution operation, and fc is the label-                  In this section, we first give the parameter settings of the
+    related feature vector. Note that a Relus activation function and                proposed LGAN method and the optimization methods in train-
+    a BN layer are followed by each convolution layer.                               ing. Then, we introduce six evaluation metrics and define their
+       Once obtaining the feature vectors {f1 , f2 , . . ., fC } corre-              expressions.
+    sponding to all PQD categories, a single-layer BRNN is con-                         In this article, we use four convolutional blocks to construct
+    structed to explore the interactions of these feature vectors. The               the feature extractor. The number of convolutional kernels in
+    structure of BRNN is shown in Fig. 4.                                            each block is 16, 32, 64, and 128, respectively. Besides, the
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+      4702                                                                          IEEE TRANSACTIONS ON INDUSTRIAL INFORMATICS, VOL. 18, NO. 7, JULY 2022
+
+
+
+      kernel size of convolution and Max-pooling is set to 3 and 2,                                      IV. EXPERIENCE AND RESULTS
+      respectively.
+                                                                                           According to [2] and standard IEEE-1159 [28], 48 types
+         For the label-decoupling module, the dimensions d1 and d2
+                                                                                        of PQD signals are simulated in MATLAB. These signals are
+      of the joint embeddings and output features are all set as 64.
+                                                                                        composed of seven typical single PQD signals (including swell,
+      N, L, and C are 128, 40, and 8, respectively. In the feature
+                                                                                        sag, interruption, flicker, harmonic, impulsive transient, and
+      attention module, the reduction ratio r is set as 8. Thus, the kernel
+                                                                                        oscillatory transient). In addition, to ensure that each sample
+      numbers of two convolutional layers W0 and W1 are 64 and
+                                                                                        contains at least one PQD category, we also regard the normal
+      64/r = 8. In the location attention module, fb (·) is implemented
+                                                                                        signal as a PQD category. Therefore, the sample label is an 8-D
+      by a convolutional layer that consists of only one convolution
+                                                                                        vector, in which each binary element indicates the presence or
+      kernel with the kernel size of 7.
+                                                                                        absence of a specific PQD category. The basic frequency f0 of
+         For the BRNN module, the number of neurons h in the hidden
+                                                                                        PQD is 50 Hz, and the sampling frequency fs is set to 3.2 kHz.
+      layer of BRNN is set as 4. The V is a 8-to-1 fully connected
+                                                                                        Each PQD sample is sampled for ten cycles, with a total of
+      layer that transforms the state vectors to one single output
+                                                                                        640 sampling points. For each type of PQD signal, 500 samples
+      score.
+                                                                                        under different Gaussian white noise levels are generated. The
+         The cross entropy is adopted as the objective loss function in
+                                                                                        signal-to-noise ratio (SNR) of each sample is a random value
+      training. Specifically, given a dataset {Ii , yi }M i=1 that contains M           in 20–50 dB. Then, the dataset containing 48×500 samples is
+      training samples, in which Ii represents the ith PQD signal, yi =
+                                                                                        evenly divided into training set, validation set, and test set, with
+      {y1i , y2i , . . ., yC
+                           i
+                             } is the corresponding category label. For a PQD
+                                                                                        a ratio of 3:1:1. In addition, four extra test sets with SNR of 20,
+      signal Ii , we can obtain a predicted score vector {ỹ1i , ỹ2i , . . ., ỹC
+                                                                                 i
+                                                                                   }.
+                                                                                        30, 40, and 50 db are generated to evaluate the model.
+      Then, the cross entropy loss can be calculated by
+                                                                                           The experiments are implemented using Python 3.7 environ-
+                                                                                        ment on a system equipped with an Intel core i7-9700 K 3.6 GHz
+                  1 1  i
+                          M     C
+         L=−                 [y logỹci + (1 − yci )log(1 − ỹci )]. (15)               CPU and a GeForce RTX2070 GPU.
+                  M C i=1 c=1 c
+
+         The proposed LGAN is trained with the loss L in an end-to-                     A. Performance Analysis of the Proposed Method
+      end way. The batch size is set to 288 and the number of iterations                   To verify the characteristics and advantages of the proposed
+      is 200. The stochastic gradient descent algorithm is the Adam                     LGAN, we establish four advanced CNN models for compara-
+      update rule [27], and the initial learning rate is set to 0.001.                  tive analysis. The structure and parameters of these methods are
+         The accuracy (ACC) and hamming loss (HL) are used to                           as follows.
+      evaluate the multilabel classification performance of the pro-                        1) Multilabel CNN (ML-CNN): It is obtained by adding a fully
+      posed method. Moreover, to fairly compare with other mul-                         connected neural network including a hidden layer and an output
+      tilabel methods, we introduced four metrics: ranking loss,                        layer after the feature extractor defined in Section III-B. The
+      one-error, coverage, and average precision (RL, OE, C, and                        neuron numbers in the hidden layer and output layer are set to
+      AP, respectively) proposed by [18]. These metrics are defined                     128 and 8, respectively. Dropout [29] of 0.25 is used between
+      as follows:                                                                       the hidden and output layer to reduce overfitting. The activation
+                                                                                        function in the output layer is sigmoid.
+                  1                          11
+                     n                           n
+       ACC =            {f (xi ) = Yi }, HL =         |f (xi )ΔYi |                         2) Multiclass CNN (MC-CNN): MC-CNN is exactly the same
+                  n i=1                       n i=1 q                                   as the ML-CNN model in structure, but its output layer consists
+                                                                                        of 48 neurons, and its activation function is softmax.
+                  1  |Di |                1
+                     n                        n
+         RL =                       , OE =                         / Yi )}
+                                                 {fargmax (xi , yi ∈                        3) Deep CNN (DCNN) proposed in [8]: A deep 1DCNN
+                  n i=1 |Yi ||Ȳi |        n i=1                                        framework with six convolutional layers and two fully connected
+                                                                                        layers. The convolution kernel size is 3, and the kernel numbers
+                1
+                      n
+             C=       max frank (xi , yi ) − 1                                          of each layer are 32, 32, 64, 64, 128, and 128, respectively.
+                n i=1 yj ∈Yi                                                                4) CNN-LSTM propoesd in [5]: A hybrid architecture with
+                                                                                        two convolutional layers followed by LSTM with 50 memory
+              1 1 
+                      n
+                               |Li |
+         AP =                                                                           blocks. The two convolutional layers have 64 and 128 kernels,
+              n i=1 |Yi | frank (xi , yi )                                              respectively, with a kernel size of 3.
+                                yj ∈Yi
+                                                                           (16)            The abovementioned four CNN models are implemented
+      where n and q are the numbers of test samples and labels                          based on the DL framework Pytorch. Each CNN model is
+      in the labels set, respectively, xi and Yi denote the ith sam-                    repeatedly trained five times, and the mean ± standard deviation
+      ples and its labels set, respectively, and Ȳi is the comple-                     are taken as the final result. The results are listed in Table I.
+      mentary set of Yi . The Di represents the misjudged label set,                       As shown in Table I, LAGN achieves the best performance
+      Li = {yi |frank (xi , yi ) ≤ frank (xi , yi ), yi ∈ Yi }. Δ represents         under different SNR. The accuracy of LGAN exceeds 99%
+      the symmetric difference between two sets, and frank (xi , yi )                   except under extreme noise environments (SNR=20 db). Under
+      returns the rank of yi . Among these metrics, accuracy and                        random noise, the accuracy of ML-CNN, MC-CNN, and DCNN
+      hamming loss are the most important metrics that can evaluate                     is about 98.5%, and CNN-LSTM obtained the lowest accuracy
+      the model more comprehensively.                                                   with 98%. The accuracy gap among ML-CNN and MC-CNN is
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+    GU et al.: NOVEL LABEL-GUIDED ATTENTION METHOD FOR MULTILABEL CLASSIFICATION                                                                                      4703
+
+
+
+                                  TABLE I                                                                          TABLE III
+               DETAILED PERFORMANCE OF DIFFERENT CNN MODELS                                       PERFORMANCE OF DIFFERENT MULTILABEL METHODS
+
+
+
+
+      The test results of the proposed method are shown in boldface.
+
+
+                                     TABLE II
+                          COMPLEXITY OF DIFFERENT MODELS
+
+
+
+
+      The test results of the proposed method are shown in boldface.
+
+
+
+    very small, which shows that the multilabel classification of PQD
+    cannot significantly improve performance without considering
+    the correlation of the labels.
+       To analyze the time complexity of the abovementioned mod-
+    els, the parameter quantities and floating point operations per
+    second (FLOPs) of different models are listed in Table II.                         0
+                                                                                         In the table, ↓ means smaller is better, whereas ↑ means larger is better.
+       From the perspective of FLOPs and parameters, the algorithm                     The test results of the proposed method are shown in boldface.
+    complexity of the proposed method is relatively high, second
+    only to DCNN in [8]. Table II also compares the algorithmic
+    computational time. The testing time of LGAN on a testing set
+    containing 4800 samples is the longest with 32 s. But overall,
+    the test time difference between DCNN and LGAN is of few
+    seconds.
+
+    B. Comparative Analysis With Multilabel Methods
+       To demonstrate the effectiveness of LGAN, three advanced
+    multilabel methods including MLKNN [30], MLHARAM [31],
+    and BPMLL [32] are used for the comparison. Additionally,
+    we combine BPMLL with DL and propose a CNN-BPMLL,
+    which adds the feature extractor defined in Section III-B be-
+    fore BPMLL. The parameters of MLKNN, MLHARAM, and
+    BPMLL are set as the best values reported in previous studies.
+    Table III lists the performances of different multilabel methods.                Fig. 5.     Accuracy of different multilabel methods.
+       As can be seen from Table III, our method obtains the best
+    performance on various metrics under different SNR. The accu-
+    racy and hamming loss decrease slightly more only in extreme                        To further illustrate the improvement of DL and label cor-
+    noise environments (SNR= 20 dB), which illustrates that the                      relation to PQD classification, we compare the performance of
+    antinoise performance of the proposed method is satisfactory.                    BPMLL, CNN-BPMLL, and LGAN with accuracy as evaluation
+    Under random noise, MLKNN and MLHARAM performed the                              metric. The comparison result is shown in Fig. 5.
+    worst with a hamming loss of 10−1 , BPMLL followed with a                           Compared to BPMLL, the CNN-BPMLL and LGAN use
+    hamming loss of 10−2 , and CNN-BPMLL and LGAN were the                           1DCNN to extract features, and their performance is signif-
+    best with a hamming loss of 10−3 . In other words, the hamming                   icantly superior to that of BPMLL with an accuracy of over
+    loss of LGAN is one to two orders of magnitude lower than that                   90%. This indicates that DL-based feature extraction methods
+    of the other multilabel methods.                                                 can effectively improve PQD classification performance. Both
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+      4704                                                                        IEEE TRANSACTIONS ON INDUSTRIAL INFORMATICS, VOL. 18, NO. 7, JULY 2022
+
+
+
+                                 TABLE IV
+         COMPARISON OF VARIOUS SINGLE-LABEL CLASSIFICATION METHODS
+
+
+
+
+       The test results of the proposed method are shown in boldface.
+
+
+
+                                    TABLE V
+             COMPARISON OF VARIOUS MULTILABEL CLASSIFICATION METHODS
+
+                                                                                      Fig. 6. Real-time detection platform. (a) Framework of the detection
+                                                                                      platform. (b) Hardware platform.
+
+
+
+                                                                                         To investigate the multilabel classification performance of the
+                                                                                      proposed method, we compare the hamming loss of various ex-
+                                                                                      isting multilabel classification methods, as listed in Table V. The
+                                                                                      work in [2], [9], [15], and [20] uses the same simulation dataset
+                                                                                      as this article, but they were not able to identify normal signals.
+                                                                                      In terms of hamming loss, the proposed LGAN is two orders of
+       The test results of the proposed method are shown in boldface.
+                                                                                      magnitude better than these multilabel methods. The hamming
+                                                                                      loss of the method in [10] is close to the proposed LGAN, and
+                                                                                      is only superior to our method at 20 dB SNR. Except [10], the
+      CNN-BPMLL and LGAN combine DL with multilabel classifi-                         multilabel classification performance of LGAN is one to two
+      cation. But different from CNN-BPMLL, the proposed LGAN                         orders of magnitude better than the existing multilabel methods.
+      use label correlations to improve multilabel classification. As                 The abovementioned comparison shows the obvious superiority
+      can be seen from Fig. 5, the accuracy of LGAN is about 1%                       of LGAN for PQD multilabel classification.
+      higher than that of CNN-BPMLL under various noise levels,
+      which validates the effectiveness of exploring label correlations
+      for multilabel classification of PQD.                                           D. Real-Time Detection Platform
+                                                                                         The LGAN model is deployed on a hardware platform to
+                                                                                      validate its performance in real-time detection. The real-time
+      C. Comparative Analysis With Other Methods                                      detection platform constructs of a three-phase standard source,
+         To further investigate the validity of LGAN, we compare the                  a data acquisition platform and a PC with Python, as shown in
+      LGAN with other methods in the existing literatures, and list the               Fig. 6.
+      comparison results in Tables IV and V.                                             Fig. 6(a) shows the framework of the real-time detection
+         As shown in Table IV, we compare the existing single-label                   platform. The standard source is HBS-1030, which is used to
+      methods in three aspects: feature extraction method, the number                 generate seven types of PQD, including C1–C7 (swell, sag,
+      of PQD that can be identified, and accuracy. Compared to single-                interruption, harmonics, swell with harmonics, sag with har-
+      label classification methods, the proposed LGAN can identify                    monics, and interruption with harmonics). The data acquisition
+      up to 48 disturbances, which greatly increases the number of dis-               platform consists of three parts: voltage transformer, analog-
+      turbances that can be identified. On the whole, the methods [6],                to-digital converter (ADC), and microcontroller (MCU). The
+      [7] based on DL have better classification performance than                     current-type voltage transformer DL-PT202H1 steps down the
+      traditional methods. Compared to the existing state-of-the-art                  voltage signal generated by the standard source at a transfor-
+      DL method [7], the accuracy of our LGAN method is reduced                       mation ratio of 220 V/4 V. AD7699 is used for data acquisition
+      by less than 1%, but the number of PQD categories that can be                   and conversion. The AD7699 is an 8-channel, 16-bit, charge
+      identified is doubled. The abovementioned results indicate that                 redistribution successive approximation register ADC, which
+      the proposed LGAN can maintain a high classification accuracy                   is capable of converting 500k samples per second. ADC and
+      under the premise of expanding the number of disturbance                        MCU exchange data with a serial peripheral interface, where
+      recognition categories.                                                         the data transfer rate of the AD7699 is set to 32 KHz. The
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+    GU et al.: NOVEL LABEL-GUIDED ATTENTION METHOD FOR MULTILABEL CLASSIFICATION                                                                                 4705
+
+
+
+                                TABLE VI                                                                            REFERENCES
+                PERFORMANCE OF LGAN IN REAL-TIME DETECTION
+                                                                                      [1] M. Mishra, “Power quality disturbance detection and classification using
+                                                                                          signal processing and soft computing techniques: A comprehensive re-
+                                                                                          view,” Int. Trans. Elect. Energy Syst., vol. 29, no. 8, 2019, Art no. e12008.
+                                                                                      [2] Z. Liu, Y. Cui, and W. Li, “A classification method for complex power
+                                                                                          quality disturbances using EEMD and rank wavelet SVM,” IEEE Trans.
+                                                                                          Smart Grid, vol. 6, no. 4, pp. 1678–1685, Jul. 2015.
+                                                                                      [3] S. Khokhar, A. A. M. Zin, A. P. Memon, and A. S. Mokhtar, “A new
+                                                                                          optimal feature selection algorithm for classification of power quality
+                                                                                          disturbances using discrete wavelet transform and probabilistic neural
+    MCU STM32F103ZET6 incorporates the ARM Cortex-M3 32-                                  network,” Measurement, vol. 95, pp. 246–259, 2017.
+                                                                                      [4] K. Thirumala, M. S. Prasad, T. Jain, and A. C. Umarikar, “Tunable-q
+    bit core with high-speed embedded memories, where the clock                           wavelet transform and dual multiclass SVM for online automatic detection
+    frequency is set to 72 MHz. A PQD real-time detection system is                       of power quality disturbances,” IEEE Trans. Smart Grid, vol. 9, no. 4,
+    built on the PC with Python. The detection system is responsible                      pp. 3018–3028, Jul. 2018.
+                                                                                      [5] N. Mohan, K. P. Soman, and R. Vinayakumar, “Deep power: Deep learning
+    for real-time display of signal waveforms and real-time detection                     architectures for power quality disturbances classification,” in Proc. Int.
+    of PQD. PC and MCU are connected via serial port, and the                             Conf. Technol. Advance. Power Energy, 2017, pp. 1–6.
+    sampling rate is set to 3.2 KHz. The hardware platform is shown                   [6] H. Liu, F. Hussain, Y. Shen, S. Arif, A. Nazir, and M. Abubakar, “Complex
+                                                                                          power quality disturbances classification via curvelet transform and deep
+    in Fig. 6(b).                                                                         learning,” Electric Power Syst. Res., vol. 163, pp. 1–9, 2018.
+       The test signals were generated by manually setting waveform                   [7] W. Qiu, Q. Tang, J. Liu, and W. Yao, “An automatic identification
+    parameters. The detection frequency of the system is set to 5 Hz,                     framework for complex power quality disturbances based on multifusion
+                                                                                          convolutional neural network,” IEEE Trans. Ind. Informat., vol. 16, no. 5,
+    i.e., the PQD signal is detected every ten fundamental wave                           pp. 3233–3241, May 2020.
+    cycles (200 m/s). When a PQD signal is detected, the message                      [8] S. Wang and H. Chen, “A novel deep learning method for the classification
+    is displayed on the console and the disturbance waveform is                           of power quality disturbances using deep convolutional neural network,”
+                                                                                          Appl. Energy, vol. 235, pp. 1126–1140, 2019.
+    recorded. We repeated the experiment 60 times for each type                       [9] Y. Luo, K. Li, Y. Li, D. Cai, C. Zhao, and Q. Meng, “Three-layer Bayesian
+    of disturbance. The real-time detection results are listed in                         network for classification of complex power quality disturbances,” IEEE
+    Table VI.                                                                             Trans. Ind. Informat., vol. 14, no. 9, pp. 3997–4006, Sep. 2018.
+                                                                                     [10] Y. Dong, H. Cao, X. Ding, G. Xu, and C. Yue, “Multi-task learning
+       Table VI summarizes the classification performance of the                          method for classification of multiple power quality disturbances,” IET
+    LGAN in real-time detection. The average accuracy is 97.86 ±                          Gener. Transmiss. Distrib., vol. 14, no. 5, pp. 900–909, 2020.
+    1.72%, and the hamming loss is 0.0039 ± 0.0034. In addition,                     [11] P. K. Ray, S. R. Mohanty, N. Kishor, and J. P. S. Catalão, “Optimal feature
+                                                                                          and decision tree-based classification of power quality disturbances in
+    the recognition and recording time of each PQD in the exper-                          distributed generation systems,” IEEE Trans. Sustain. Energy, vol. 5, no. 1,
+    iment is 9 ms, which indicates that the recognition speed of                          pp. 200–208, Jan. 2014.
+    LGAN meets the needs of real-time detection. The enhanced                        [12] M. Biswal and P. K. Dash, “Detection and characterization of multiple
+                                                                                          power quality disturbances with a fast S-transform and decision tree based
+    classification performance and the real-time detection capability                     classifier,” Digit. Signal Process., vol. 23, no. 4, pp. 1071–1083, 2013.
+    prove the practicability of the proposed LGAN effectively.                       [13] S. Shukla, S. Mishra, and B. Singh, “Power quality event classification
+                                                                                          under noisy conditions using EMD-based de-noising techniques,” IEEE
+                                                                                          Trans. Ind. Informat., vol. 10, no. 2, pp. 1044–1054, May 2014.
+                                                                                     [14] P. D. Achlerkar, S. R. Samantaray, and M. S. Manikandan, “Variational
+                                V. CONCLUSION                                             mode decomposition and decision tree based detection and classification
+                                                                                          of power quality disturbances in grid-connected distributed generation
+       In this article, a multilabel classification method named                          system,” IEEE Trans. Smart Grid, vol. 9, no. 4, pp. 3122–3132, Jul. 2018.
+                                                                                     [15] C. Zhao et al., “Novel method based on variational mode decomposition
+    LGAN based on DL was proposed to recognize multiple PQD.                              and a random discriminative projection extreme learning machine for mul-
+    Different from the existing multilabel methods, the proposed                          tiple power quality disturbance recognition,” IEEE Trans. Ind. Informat.,
+    LGAN introduces the PQD category information to guide learn-                          vol. 15, no. 5, pp. 2915–2926, May 2019.
+                                                                                     [16] Y. LeCun, Y. Bengio, and G. Hinton, “Deep learning,” Nature, vol. 521,
+    ing label-related features and then capture their correlations to                     no. 7553, pp. 436–444, 2015.
+    improve the classification performance. In particular, the combi-                [17] L. Zhou, C. Guan, and W. Lu, “Application of multi-label classification
+    nation of the proposed label-guided attention module and BRNN                         method to categorization of multiple power quality disturbances,” Proc.
+                                                                                          Chin. Soc. Elect. Eng., vol. 31, no. 4, pp. 45–50, 2011.
+    can more completely characterize the higher order correlations                   [18] R. E. Schapire and Y. Singer, “BoosTexter: A boosting-based system for
+    between PQD category labels. Simulation experiment indicates                          text categorization,” Mach. Learn., vol. 39, no. 2/3, pp. 135–168, 2000.
+    that the proposed LGAN has high classification performance and                   [19] C. Guan, L. Zhou, and W. Lu, “Recognition of multiple power quality
+                                                                                          disturbances using multi-label RBF neural networks,” Trans. China Elec-
+    good robustness to noise under the premise of greatly expanding                       trotech. Soc., vol. 26, no. 8, pp. 198–204, 2011.
+    the types of PQD that can be identified. Compared to the existing                [20] Q. Zhang, Z. Liu, L. Zhu, and Y. Zhang, “Recognition of multiple power
+    state-of-the-art methods, the LGAN outperforms several pow-                           quality disturbances using multi-label wavelet support vector machine,”
+                                                                                          Proc. Chin. Soc. Elect. Eng., vol. 33, no. 28, pp. 114–120, 2013.
+    erful multilabel classifiers, such as BPMLL. Furthermore, the                    [21] J. Schmidhuber, “Deep learning in neural networks: An overview,” Neural
+    real-time detection platform test verify the effectiveness of the                     Netw., vol. 61, pp. 85–117, 2015.
+    method in practical applications.                                                [22] S. Ioffe and C. Szegedy, “Batch normalization: Accelerating deep network
+                                                                                          training by reducing internal covariate shift,” in Proc. 32nd Int. Conf.
+       However, due to the high network complexity of the proposed                        Mach. Learn., 2015, pp. 448–456.
+    method, it may be difficult to meet the requirements for delay                   [23] V. Nair and G. Hinton, “Rectified linear units improve restricted Boltzmann
+    and computing resources in actual deployment. Further studies                         machines,” in Proc. Int. Conf. Mach. Learn., 2010, pp. 807–814.
+                                                                                     [24] J.-H. Kim, K.-W. On, W. Lim, J. Kim, J.-W. Ha, and B.-T. Zhang,
+    should be done with model pruning or knowledge distillation to                        “Hadamard product for low-rank bilinear pooling,” 2017, arXiv:
+    reduce the computation costs and obtain lower inference time.                         1610.04325v4.
+
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+      4706                                                                           IEEE TRANSACTIONS ON INDUSTRIAL INFORMATICS, VOL. 18, NO. 7, JULY 2022
+
+
+
+      [25] S. Woo, J. Park, J.-Y. Lee, and I. S. Kweon, “CBAM: Convolutional block                              Yunfeng Li was born in Hunan Province, China,
+           attention module,” in Proc. Eur. Conf. Comput. Vis., 2018, pp. 3–19.                                 in 1992. He received the B.E. degree in elec-
+      [26] M. Lin, Q. Chen, and S. Yan, “Network in network,” 2014,                                             trical engineering from the China University of
+           arxiv:1312.4400.                                                                                     Mining and Technology, Xuzhou, China, in 2015,
+      [27] D. P. Kingma and J. Ba, “Adam: A method for stochastic optimization,”                                and the master’s degree in control engineer-
+           2014, arXiv: 1412.6980.                                                                              ing in 2018 from Hunan University, Changsha,
+      [28] IEEE Recommended Practice for Monitoring Electric Power Quality,                                     China, where he is currently working toward the
+           IEEE Standard 1159-2009, 2009.                                                                       Ph.D. degree in electrical engineering.
+      [29] N. Srivastava, G. Hinton, A. Krizhevsky, I. Sutskever, and R. Salakhutdi-                               His research interests include intelligent infor-
+           nov, “Dropout: A simple way to prevent neural networks from overfitting,”                            mation processing, power-quality analysis, and
+           J. Mach. Learn. Res., vol. 15, pp. 1929–1958, 2014.                                                  machine learning.
+      [30] M.-L. Zhang and Z.-H. Zhou, “ML-KNN: A lazy learning approach to
+           multi-label learning,” Pattern Recognit., vol. 40, no. 7, pp. 2038–2048,
+           2007.
+      [31] F. Benites and E. Sapozhnikova, “HARAM: A hierarchical ARAM neural
+           network for large-scale text classification,” in Proc. IEEE Int. Conf. Data
+           Mining Workshop, 2015, pp. 847–854.
+      [32] M.-L. Zhang and Z.-H. Zhou, “Multilabel neural networks with applica-
+           tions to functional genomics and text categorization,” IEEE Trans. Knowl.                            Yanqing Zhu was born in Hunan, China, in
+           Data Eng., vol. 18, no. 10, pp. 1338–1351, Oct. 2006.                                                1978. He received the B.Sc., M.Sc., and Ph.D.
+      [33] M. D. Borras, J. C. Bravo, and J. C. Montaño, “Disturbance ratio for                                 degrees in electrical engineering from Hunan
+           optimal multi-event classification in power distribution networks,” IEEE                             University, Changsha, China, in 2001, 2004, and
+           Trans. Ind. Electron., vol. 63, no. 5, pp. 3117–3124, May 2016.                                      2008, respectively.
+      [34] F. A. S. Borges, R. A. S. Fernandes, I. N. Silva, and C. B. S. Silva, “Fea-                            He is currently a Full Associate Professor with
+           ture extraction and power quality disturbances classification using smart                            the College of Electrical and Information Engi-
+           meters signals,” IEEE Trans. Ind. Informat., vol. 12, no. 2, pp. 824–833,                            neering, Hunan University. His research inter-
+           Apr. 2016.                                                                                           ests include power distribution systems, power-
+                                                                                                                quality analysis, application of digital signal pro-
+                                                                                                                cessing, and machine learning algorithms in
+                                                                                         power systems.
+
+                                Dexi Gu was born in Jiangsu Province, China,
+                                in 1998. He received the B.E. degree in electri-
+                                cal engineering from Jiangnan University, Wuxi,
+                                China, in 2020. He is currently working to-
+                                ward the M.E. degree in electrical measurement
+                                engineering with Hunan University, Changsha,
+                                China.                                                                          Cong Wu was born in Hunan Province, China,
+                                   His research interests include smart grid,                                   in 1993. He received the B.Sc. degree in 2016
+                                power quality detection, modern signal process,                                 from Hunan University, Changsha, China, where
+                                and deep learning in power systems.                                             he is currently working toward the Ph.D. degree,
+                                                                                                                both in electrical engineering.
+                                                                                                                   His research interests include power distribu-
+                                                                                                                tion systems, power-quality analysis, application
+                                                                                                                of digital signal processing, and machine learn-
+                                Yunpeng Gao (Senior Member, IEEE) was born                                      ing algorithms in power systems.
+                                in Liaoning, China, in 1978. He received the
+                                B.Sc., M.Sc., and Ph.D. degrees in electrical
+                                engineering from Hunan University, Changsha,
+                                China, in 2001, 2004, and 2009, respectively.
+                                  He is currently a Full Professor with the Col-
+                                lege of Electrical and Information Engineering,
+                                Hunan University. His research interests include
+                                power distribution systems, power-quality anal-
+                                ysis, application of digital signal processing, and
+                                machine learning algorithms in power systems.
+
+
+
+
+Authorized licensed use limited to: Huazhong University of Science and Technology. Downloaded on September 16,2026 at 09:41:06 UTC from IEEE Xplore. Restrictions apply.
+
